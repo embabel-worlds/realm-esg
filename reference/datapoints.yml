@@ -241,7 +241,7 @@
     answerType: boolean
     sourceClass: self-disclosure
     staleAfter: 730d
-    values: [ "yes", "no", "not_disclosed" ]
+    allowedValues: [ "yes", "no", "not_disclosed" ]
     question: >-
       Does the published material state that the board or a board committee has responsibility
       for sustainability or climate matters? Answer yes ONLY where the material says so — a
@@ -259,7 +259,7 @@
     answerType: boolean
     sourceClass: self-disclosure
     staleAfter: 730d
-    values: [ "yes", "no", "not_disclosed" ]
+    allowedValues: [ "yes", "no", "not_disclosed" ]
     question: >-
       Does the published material include, or explicitly say it publishes, a code of conduct,
       business ethics policy or anti-corruption policy? Answer yes only where such a policy is

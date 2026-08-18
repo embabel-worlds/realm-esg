@@ -246,7 +246,7 @@ async function refreshCoverage() {
     const res = await view('EsgCoverage');
     const rows = res.rows || res || [];
     if (!rows.length) { tbody.innerHTML = '<tr><td class="dim">nothing assessed yet</td></tr>'; return; }
-    const cols = ['domain', 'documents', 'chunks', 'observations', 'disclosed'];
+    const cols = ['domain', 'documents', 'chunks'];
     tbody.innerHTML = '<tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr>' +
       rows.map(r => '<tr>' + cols.map((c, i) =>
         `<td${i ? ' class="n"' : ''}>${r[c] ?? ''}</td>`).join('') + '</tr>').join('');

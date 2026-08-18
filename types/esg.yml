@@ -40,7 +40,10 @@
     requiresPeriod: { type: boolean, description: "Whether a figure is meaningless without the reporting period it covers." }
     sourceClass: "self-disclosure | registry | third-party. Decides what SILENCE means: for self-disclosure absence IS the answer; for registry the website is the wrong source and absence means nothing."
     staleAfter: "How long an observation of this datapoint stays current, e.g. 365d."
-    values: { cardinality: LIST, description: "Closed answer vocabulary for boolean/enum, enforced by the producer." }
+    # NOT `values:` — that key is a VALUE-SOURCE declaration (e.g. `values: { source: distinct }`),
+    # and a malformed one silently breaks the whole type: the realm loads, but seeding then fails
+    # with "unknown reference type 'EsgDatapoint'" while its siblings seed fine.
+    allowedValues: { cardinality: LIST, description: "Closed answer vocabulary for boolean/enum, enforced by the producer." }
     question: "The disclosure-form question put to the corpus. Asks what the published material SAYS, and always permits not_disclosed."
 
 # ── The observations (extracted per organization, cited to a chunk) ──────────────────────────

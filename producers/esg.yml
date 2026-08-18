@@ -15,7 +15,7 @@
   edgeType: HAS_OBSERVATIONS
   collect:
     targetLabel: Chunk
-    via: PART_OF|HAS_PARENT*
+    via: HAS_PARENT*
     incoming: true
     anchorLabel: Document
     anchorKeyProperty: uri
