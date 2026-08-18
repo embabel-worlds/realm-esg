@@ -398,3 +398,74 @@
            sum(CASE WHEN kind = 'narrative' THEN n ELSE 0 END) AS narratives,
            sum(CASE WHEN kind = 'boolean'   THEN n ELSE 0 END) AS booleans
     ORDER BY quantities DESC, narratives DESC, company
+
+# ── RANKING WITH CONTEXT — the join that makes a comparison mean something ────────────────────
+
+- name: EsgPeerRanking
+  description: >-
+    Disclosure completeness with the firmographics attached: industry, headcount, country, listed
+    or not. The bare leaderboard ranks a 171-person Danish fish processor against a 107,756-person
+    French insurer and calls one better; this says what is being compared.
+    `identitySuspect` is TRUE where the resolved company name does not contain the domain's own
+    label — cisco.com resolves to "Sourcefire", a company Cisco acquired, with 560 employees and
+    170 sources behind it. Treat that row's context as unverified: the DISCLOSURE figures are still
+    the company's own, only the firmographics are in doubt.
+  cypher: |
+    MATCH (o:EsgObservation)
+    WITH replace(split(replace(replace(o.docUri, 'https://', ''), 'http://', ''), '/')[0], 'www.', '') AS company,
+         o.datapointId AS dp,
+         max(CASE WHEN o.value <> 'not_disclosed' THEN 1 ELSE 0 END) AS disclosed
+    WITH company, count(dp) AS assessed, sum(disclosed) AS disclosing
+    OPTIONAL MATCH (s:EsgSubject {domain: company})
+    RETURN company, s.name AS name,
+           coalesce(s.industries[0], 'unknown') AS industry,
+           s.nbEmployees AS staff, s.country AS country, s.isPublic AS listed,
+           assessed, disclosing, round(100.0 * disclosing / assessed) AS pctDisclosed,
+           s.nbOrigins AS sourceDepth,
+           coalesce(s.domainNameMatch, true) = false AS identitySuspect
+    ORDER BY pctDisclosed DESC, company
+
+- name: EsgSectorComparison
+  description: >-
+    Disclosure rate by industry, with the number of companies behind each. THE COHORT IS THE POINT:
+    a sector represented by one company is an anecdote wearing a percentage, so `companies` is a
+    column and any sector with a small count should be read as a single data point rather than a
+    finding. Rows whose identity is suspect are excluded, because a wrong industry puts a company
+    in the wrong sector and quietly moves two averages at once.
+  cypher: |
+    MATCH (o:EsgObservation)
+    WITH replace(split(replace(replace(o.docUri, 'https://', ''), 'http://', ''), '/')[0], 'www.', '') AS company,
+         o.datapointId AS dp,
+         max(CASE WHEN o.value <> 'not_disclosed' THEN 1 ELSE 0 END) AS disclosed
+    WITH company, count(dp) AS assessed, sum(disclosed) AS disclosing
+    MATCH (s:EsgSubject {domain: company})
+    WHERE coalesce(s.domainNameMatch, true) = true
+    WITH coalesce(s.industries[0], 'unknown') AS industry,
+         count(company) AS companies, sum(disclosing) AS disclosed, sum(assessed) AS possible
+    RETURN industry, companies, disclosed, possible,
+           round(100.0 * disclosed / possible) AS pctDisclosed
+    ORDER BY companies DESC, pctDisclosed DESC
+
+- name: EsgSizeComparison
+  description: >-
+    Does size predict disclosure? Buckets companies by headcount and reports the rate in each, with
+    the count behind it. The expected story — big companies disclose more — is worth TESTING rather
+    than assuming, and on this corpus it does not hold: the fullest discloser is a 171-person fish
+    processor that publishes a proper sustainability report, while several multinationals publish
+    marketing pages. Size predicts REPORTING FORMAT more than transparency.
+  cypher: |
+    MATCH (o:EsgObservation)
+    WITH replace(split(replace(replace(o.docUri, 'https://', ''), 'http://', ''), '/')[0], 'www.', '') AS company,
+         o.datapointId AS dp,
+         max(CASE WHEN o.value <> 'not_disclosed' THEN 1 ELSE 0 END) AS disclosed
+    WITH company, count(dp) AS assessed, sum(disclosed) AS disclosing
+    MATCH (s:EsgSubject {domain: company})
+    WHERE coalesce(s.domainNameMatch, true) = true AND s.nbEmployees IS NOT NULL
+    WITH CASE WHEN s.nbEmployees < 250 THEN 'under 250'
+              WHEN s.nbEmployees < 5000 THEN '250-5k'
+              ELSE 'over 5k' END AS sizeBand,
+         company, disclosing, assessed
+    RETURN sizeBand, count(company) AS companies,
+           sum(disclosing) AS disclosed, sum(assessed) AS possible,
+           round(100.0 * sum(disclosing) / sum(assessed)) AS pctDisclosed
+    ORDER BY companies DESC

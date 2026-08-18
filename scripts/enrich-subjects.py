@@ -36,6 +36,14 @@ def corpus_domains() -> list:
     return sorted({r["domain"] for r in rows if r.get("domain")})
 
 
+def name_matches(domain: str, name: str) -> bool:
+    """Does the domain's own label survive in the resolved company name (or the reverse)?"""
+    squeeze = lambda x: "".join(ch for ch in x.lower() if ch.isalnum())
+    stem = squeeze(domain.split(".")[0])
+    n = squeeze(name)
+    return bool(stem) and (stem in n or n in stem)
+
+
 def enhance(domain: str) -> dict | None:
     r = post("/api/v1/tools/diffbot_enhance", {"type": "Organization", "url": domain})
     data = ((r.get("result") or r).get("data")) or []
@@ -55,6 +63,17 @@ def enhance(domain: str) -> dict | None:
         "isPublic": e.get("isPublic"),
         "nbOrigins": e.get("nbOrigins"),
         "resolvedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+        # THE RESOLUTION IS NOT ALWAYS RIGHT, and it fails confidently. cisco.com resolves to
+        # "Sourcefire" — a company Cisco ACQUIRED — with 560 employees and nbOrigins 170, so the
+        # coverage signal does not catch it. A sector-relative ranking built on "Cisco is a
+        # 560-person security software firm" would be badly wrong and would look fine.
+        #
+        # Cheap check, same family as the report search's same-domain guard: does the domain's own
+        # label survive in the resolved name? cisco/Sourcefire fails; hollandmalt/Holland Malt,
+        # aet-tankers/AET and espersen/A. Espersen all pass once spaces and punctuation are
+        # squeezed out. It is a heuristic and it is declared as one — the views flag rather than
+        # silently drop, because a mismatch can also be a legitimate rename.
+        "domainNameMatch": name_matches(domain, e.get("name") or ""),
     }
 
 
@@ -74,10 +93,12 @@ def main() -> int:
             print(f"  {d:22} not found in Diffbot")   # a real answer: not every company is in it
             continue
         try:
-            post("/api/v1/tools/create_entry", {"type": "EsgSubject", "data": {k: v for k, v in sub.items() if v is not None}})
+            post("/api/v1/tools/create_entry", {"type": "EsgSubject",
+                                                "data": {k: v for k, v in sub.items() if v is not None}})
             ok += 1
+            flag = "" if sub["domainNameMatch"] else "   <-- NAME MISMATCH, check before using"
             print(f"  {d:22} {str(sub['name'])[:26]:28}{str(sub.get('nbEmployees') or '?'):>7} staff  "
-                  f"{str(sub.get('country') or '?'):14}{(sub['industries'] or ['—'])[0][:26]}")
+                  f"{str(sub.get('country') or '?'):14}{(sub['industries'] or ['—'])[0][:22]}{flag}")
         except Exception as e:
             print(f"  {d:22} write failed: {str(e)[:60]}", file=sys.stderr)
     print(f"\n{ok}/{len(domains)} resolved")

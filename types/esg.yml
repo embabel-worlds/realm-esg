@@ -79,6 +79,14 @@
     country: "Country of the primary location. NOT country of legal registration — a Delaware company headquartered in California reads California."
     isPublic: { type: boolean, description: "Publicly listed. Decides whether a filings source could ever apply." }
     nbOrigins: { type: int, description: "How many sources Diffbot fused this from. Low means thin evidence; treat the rest accordingly." }
+    domainNameMatch:
+      type: boolean
+      description: >-
+        Whether the domain's own label survives in the resolved company name. FALSE means the
+        identity is probably wrong: cisco.com resolves to "Sourcefire", a company Cisco acquired,
+        with 560 employees and nbOrigins 170 — a confident wrong answer that the coverage signal
+        does not catch. A heuristic, declared as one; a mismatch can also be a legitimate rename,
+        so views flag it rather than dropping the row.
     resolvedAt: "When this was fetched. Firmographics drift; a disclosure does not."
 
 # ── The observations (extracted per organization, cited to a chunk) ──────────────────────────
