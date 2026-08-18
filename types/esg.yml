@@ -55,6 +55,32 @@
     allowedValues: { cardinality: LIST, description: "Closed answer vocabulary for boolean/enum, enforced by the producer." }
     question: "The disclosure-form question put to the corpus. Asks what the published material SAYS, and always permits not_disclosed."
 
+- name: EsgSubject
+  # NOT internal, and NOT a user anchor: seeded per assessed company by
+  # scripts/enrich-subjects.py, and read by the ranking views.
+  userAnchor: false
+  description: >-
+    An assessed organization's FIRMOGRAPHICS — industry, size, country, ownership — resolved from
+    the Diffbot company knowledge graph and keyed on the same domain the corpus uses.
+    This exists because the canonical `Organization` spine is not reachable from the user, so
+    `(:Organization)-[:HAS_DIFFBOT_ORG]->(:DiffbotOrganization)` — the bridge realm-diffbot
+    declares — returns nothing here: measured, both hops empty while the documents themselves are
+    plainly visible. Rather than fight the scope model, the realm owns its own subject node.
+    Its purpose is to make a ranking mean something. "SCHOTT discloses more than Espersen" says
+    little when one is a glass multinational and the other a 171-person fish processor; the same
+    sentence with industry and headcount attached is a comparison.
+    NOT a source of ESG facts. Nothing here is a disclosure by the company — it is third-party
+    context for reading one, and `nbOrigins` is the honest confidence signal on that context.
+  properties:
+    domain: { metadata: { identity: "true" } }
+    name: "Company name as Diffbot canonicalizes it."
+    industries: { cardinality: LIST, description: "Diffbot industry labels — the grouping axis for a sector-relative ranking." }
+    nbEmployees: { type: int, description: "Estimated headcount. An estimate from public signals, never a filing." }
+    country: "Country of the primary location. NOT country of legal registration — a Delaware company headquartered in California reads California."
+    isPublic: { type: boolean, description: "Publicly listed. Decides whether a filings source could ever apply." }
+    nbOrigins: { type: int, description: "How many sources Diffbot fused this from. Low means thin evidence; treat the rest accordingly." }
+    resolvedAt: "When this was fetched. Firmographics drift; a disclosure does not."
+
 # ── The observations (extracted per organization, cited to a chunk) ──────────────────────────
 
 - name: EsgObservation
