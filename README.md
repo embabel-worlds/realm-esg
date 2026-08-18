@@ -55,9 +55,47 @@ an answer to the form its own question demands.
 | `producers/esg.yml` | the `kind: extract` producer and its prompt |
 | `scripts/populate.py` | batch spider → corpus |
 | `scripts/headtohead.py` | the scorecard |
+| `views/esg.yml` | the read surface — coverage, profile, framework projection, silence, comparison |
+| `apps/esg-populate.html` | **the big red button** — spider domains into the corpus |
+| `apps/esg-scorecard.html` | what a company discloses, typed and cited, in any framework's language |
 | `scripts/check-catalogue-sync.py` | **CI gate** — catalogue vs prompt vs enforced vocabulary |
 
-## Running it
+## Populating
+
+Nothing populates on its own. The realm ships no `cron/`, no `events/` and no scheduler — a realm
+that silently spiders hundreds of company websites is not something that should wake up on its own.
+The corpus grows only when someone asks. Two ways to ask:
+
+**In the appliance** — open the **Populate** app, paste domains, press the button. It crawls each
+site through the gateway, ingests what it finds, and shows coverage when it is done. Then open the
+**Scorecard** app: extraction is graph-cached and fires on the first read.
+
+**From a machine that can reach the appliance** — `scripts/populate.py` is a REST client, so it
+needs network and credentials, not disk access:
+
+```bash
+EMBABEL_URL=https://<appliance> EMBABEL_USER=… EMBABEL_PASS=… \
+  python3 scripts/populate.py domains.txt --max-pages 10
+```
+
+Before either, seed the catalogue once:
+
+```bash
+curl -XPOST "https://<appliance>/api/v1/admin/reference/seed?username=<you>"
+```
+
+## Views
+
+| View | Answers |
+|---|---|
+| `EsgCoverage` | what has been assessed — **the denominator for everything else** |
+| `EsgProfile` | one company's observations, with the quote each was read from |
+| `EsgFrameworkReport` | the same observations in one framework's language |
+| `EsgSilence` | `not_disclosed` (read it, found nothing) vs `not_assessed` (never looked) |
+| `EsgDisclosureComparison` | disclosure rates by industry, **returning the cohort size as a column** |
+| `EsgDatapointCatalogue` | what can be observed at all, and what each thing feeds |
+
+## Running the head-to-head
 
 ```bash
 python3 scripts/check-catalogue-sync.py                      # always, before anything
@@ -88,8 +126,11 @@ Honest about what is and is not done:
 - **13 datapoints, not 97.** A slice where several frameworks genuinely overlap — climate,
   energy, water, safety, diversity, governance. Only 11 of the benchmark's 97 metrics map onto
   them, so the diff is partial and says so.
-- **`populate.py` and `headtohead.py` have not been run against a live app.** They compile; they
-  are untested end to end.
+- **Nothing here has been run against a live app.** The scripts compile and the apps have no
+  external dependencies, but neither the views, the apps, the seed step nor the extraction have
+  been exercised end to end.
+- **No skill yet**, so population and querying are app- and script-driven rather than available
+  from chat.
 - **No versioning.** Observations are replaced when a document changes, not superseded. "Who
   added a policy this year" needs a curation lifecycle this realm does not yet have.
 - **No staleness sweeper.** `staleAfter` is declared on every datapoint and nothing acts on it.

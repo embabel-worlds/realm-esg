@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="What an organization actually discloses, typed and cited, in any reporting framework's language.">
+<link rel="icon" href="esg-scorecard.svg">
+<title>ESG — Scorecard</title>
+<style>
+  :root{--bg:#f6f6f7;--panel:#fff;--ink:#16181d;--muted:#6b7280;--line:#e3e5e9;
+    --ok:#0f7b45;--silent:#8a6d1f;--accent:#16613f;--mono:ui-monospace,SFMono-Regular,Menlo,monospace}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --bg:#0e1013;--panel:#16191e;--ink:#e9eaec;--muted:#9aa1ac;--line:#272b32;
+    --ok:#3fbd7c;--silent:#d2b053;--accent:#3fbd7c}}
+  :root[data-theme="dark"]{--bg:#0e1013;--panel:#16191e;--ink:#e9eaec;--muted:#9aa1ac;--line:#272b32;
+    --ok:#3fbd7c;--silent:#d2b053;--accent:#3fbd7c}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:1060px;margin:0 auto;padding:32px 20px 64px}
+  h1{font-size:26px;margin:0 0 4px;letter-spacing:-.02em}
+  .sub{color:var(--muted);margin:0 0 24px}
+  .bar{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;background:var(--panel);
+    border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin-bottom:20px}
+  label{display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+  select{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:14px inherit;min-width:190px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:20px}
+  h2{font-size:15px;margin:0 0 4px;letter-spacing:-.01em}
+  .note{color:var(--muted);font-size:13px;margin:0 0 16px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em}
+  .scroll{overflow-x:auto}
+  .val{font-family:var(--mono);font-weight:600}
+  .unit{color:var(--muted);font-weight:400}
+  .quote{color:var(--muted);font-size:12.5px;font-style:italic;max-width:430px}
+  .pill{display:inline-block;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:600;
+    border:1px solid var(--line);color:var(--muted)}
+  .pill.q{color:var(--ok);border-color:var(--ok)}
+  .pill.s{color:var(--silent);border-color:var(--silent)}
+  .empty{color:var(--muted);padding:14px 0}
+  .flag{border-left:3px solid var(--silent);padding:9px 14px;color:var(--muted);font-size:13px;
+    background:var(--bg);border-radius:0 8px 8px 0;margin-top:14px}
+  code{font-family:var(--mono);font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>ESG scorecard</h1>
+  <p class="sub">What an organization's published material actually says — typed, quoted, and
+     rendered in whichever framework you need.</p>
+
+  <div class="bar">
+    <div>
+      <label for="domain">Organization</label>
+      <select id="domain"><option value="">loading…</option></select>
+    </div>
+    <div>
+      <label for="framework">Render as</label>
+      <select id="framework">
+        <option value="">observations as captured</option>
+        <option value="ghg-protocol">GHG Protocol</option>
+        <option value="esrs">ESRS (CSRD)</option>
+        <option value="gri">GRI</option>
+        <option value="issb">ISSB (IFRS S1/S2)</option>
+        <option value="sasb">SASB</option>
+        <option value="iris-plus">IRIS+</option>
+        <option value="vendor-baseline">Vendor baseline questionnaire</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 id="title">Observations</h2>
+    <p class="note" id="subtitle">Every answer carries the sentence it was read from. A figure is a
+       figure; where the material is silent it says so.</p>
+    <div class="scroll"><table id="main"><tbody></tbody></table></div>
+    <div class="flag" id="codeflag" hidden>
+      Framework codes in this realm are <code>verified: false</code> — provisional, not yet checked
+      against the published standard. Do not quote them onward.
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Silence</h2>
+    <p class="note">Read the material and found nothing (<span class="pill s">not_disclosed</span>)
+       versus never looked (<span class="pill">not_assessed</span>). Conflating those is what makes
+       a scraped ESG dataset worthless.</p>
+    <div class="scroll"><table id="silence"><tbody></tbody></table></div>
+  </div>
+</div>
+
+<script>
+// Presentation only. Every read is a NAMED view the realm defines and the host executes; the
+// browser never composes a query and never sends Cypher.
+const view = async (name, params) => {
+  const r = await fetch(`/api/v1/views/${encodeURIComponent(name)}/invoke`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    credentials: 'same-origin', body: JSON.stringify(params || {})
+  });
+  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  const b = await r.json();
+  return b.rows || (Array.isArray(b) ? b : []);
+};
+const el = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const paint = (tbl, head, rows) => {
+  const b = el(tbl).querySelector('tbody');
+  if (!rows.length) { b.innerHTML = `<tr><td class="empty">nothing to show — populate this domain first</td></tr>`; return; }
+  b.innerHTML = '<tr>' + head.map(h => `<th>${esc(h.label)}</th>`).join('') + '</tr>' +
+    rows.map(r => '<tr>' + head.map(h => `<td>${h.cell(r)}</td>`).join('') + '</tr>').join('');
+};
+const valueCell = r => {
+  const v = r.value;
+  if (v === 'not_disclosed') return '<span class="pill s">not disclosed</span>';
+  if (v === 'not_assessed')  return '<span class="pill">not assessed</span>';
+  return `<span class="val">${esc(v)}</span>` + (r.unit ? ` <span class="unit">${esc(r.unit)}</span>` : '')
+       + (r.period ? `<div class="unit">${esc(r.period)}</div>` : '');
+};
+
+async function render() {
+  const domain = el('domain').value, framework = el('framework').value;
+  if (!domain) return;
+  el('codeflag').hidden = !framework;
+  try {
+    if (framework) {
+      el('title').textContent = el('framework').selectedOptions[0].text;
+      el('subtitle').textContent = 'The same observations, projected into this framework. Captured once, cited once.';
+      paint('main', [
+        {label: 'Code',        cell: r => `<code>${esc(r.code)}</code>`},
+        {label: 'Requirement', cell: r => esc(r.requirement)},
+        {label: 'Value',       cell: valueCell},
+        {label: 'Evidence',    cell: r => `<div class="quote">${esc(r.evidence || '')}</div>`},
+      ], await view('EsgFrameworkReport', {domain, framework}));
+    } else {
+      el('title').textContent = 'Observations';
+      el('subtitle').textContent = 'Every answer carries the sentence it was read from.';
+      paint('main', [
+        {label: 'Datapoint', cell: r => esc(r.datapoint)},
+        {label: 'Type',      cell: r => `<span class="pill${r.type === 'quantity' ? ' q' : ''}">${esc(r.type)}</span>`},
+        {label: 'Value',     cell: valueCell},
+        {label: 'Evidence',  cell: r => `<div class="quote">${esc(r.evidence || '')}</div>`
+            + (r.sourceUrl ? `<a href="${esc(r.sourceUrl)}" target="_blank" rel="noopener noreferrer">source</a>` : '')},
+      ], await view('EsgProfile', {domain}));
+    }
+    paint('silence', [
+      {label: 'Datapoint', cell: r => esc(r.datapoint)},
+      {label: 'Status',    cell: r => `<span class="pill ${r.status === 'not_disclosed' ? 's' : ''}">${esc(r.status)}</span>`},
+    ], await view('EsgSilence', {domain}));
+  } catch (e) {
+    el('main').querySelector('tbody').innerHTML = `<tr><td class="empty">could not load: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+(async () => {
+  const sel = el('domain');
+  try {
+    const rows = await view('EsgCoverage');
+    sel.innerHTML = rows.length
+      ? rows.map(r => `<option value="${esc(r.domain)}">${esc(r.domain)} — ${esc(r.observations)} observations</option>`).join('')
+      : '<option value="">nothing assessed yet — use Populate</option>';
+  } catch (e) { sel.innerHTML = `<option value="">coverage unavailable</option>`; }
+  sel.addEventListener('change', render);
+  el('framework').addEventListener('change', render);
+  render();
+})();
+</script>
+</body>
+</html>

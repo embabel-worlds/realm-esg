@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Spider organizations' published material into the ESG corpus.">
+<link rel="icon" href="esg-populate.svg">
+<title>ESG — Populate</title>
+<style>
+  :root{
+    --bg:#f6f6f7; --panel:#fff; --ink:#16181d; --muted:#6b7280; --line:#e3e5e9;
+    --red:#c8102e; --red-hi:#e11d34; --red-lo:#96061f; --ok:#0f7b45; --warn:#a8560a; --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+    --bg:#0e1013; --panel:#16191e; --ink:#e9eaec; --muted:#9aa1ac; --line:#272b32;
+    --ok:#3fbd7c; --warn:#e0a44a;
+  }}
+  :root[data-theme="dark"]{
+    --bg:#0e1013; --panel:#16191e; --ink:#e9eaec; --muted:#9aa1ac; --line:#272b32;
+    --ok:#3fbd7c; --warn:#e0a44a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:940px;margin:0 auto;padding:32px 20px 64px}
+  h1{font-size:26px;margin:0 0 4px;letter-spacing:-.02em}
+  .sub{color:var(--muted);margin:0 0 28px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:20px}
+  label{display:block;font-weight:600;font-size:13px;margin-bottom:6px}
+  .hint{color:var(--muted);font-size:13px;margin:6px 0 0}
+  textarea{width:100%;min-height:132px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;
+    background:var(--bg);color:var(--ink);font:13px/1.6 var(--mono);resize:vertical}
+  .row{display:flex;gap:20px;align-items:flex-end;flex-wrap:wrap;margin-top:14px}
+  .row > div{flex:0 0 auto}
+  input[type=number]{width:88px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;
+    background:var(--bg);color:var(--ink);font:14px var(--mono)}
+  /* The button. It starts a crawl of third-party websites, so it is deliberately hard to press by accident. */
+  .bigred{display:block;width:100%;margin:26px 0 0;padding:26px;border:0;border-radius:14px;cursor:pointer;
+    background:var(--red);color:#fff;font-size:23px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+    box-shadow:0 6px 0 var(--red-lo),0 12px 26px rgba(200,16,46,.34);transition:transform .06s,box-shadow .06s,background .15s}
+  .bigred:hover:not(:disabled){background:var(--red-hi)}
+  .bigred:active:not(:disabled){transform:translateY(5px);box-shadow:0 1px 0 var(--red-lo),0 4px 12px rgba(200,16,46,.3)}
+  .bigred:disabled{background:var(--muted);box-shadow:none;cursor:not-allowed;opacity:.75}
+  .warn{border-left:3px solid var(--warn);padding:10px 14px;margin-top:16px;color:var(--muted);font-size:13.5px;background:var(--bg);border-radius:0 8px 8px 0}
+  #log{font:12.5px/1.65 var(--mono);white-space:pre-wrap;max-height:340px;overflow:auto;margin:0}
+  #log:empty::after{content:"idle — nothing has been crawled";color:var(--muted)}
+  .ok{color:var(--ok)} .bad{color:var(--red)} .dim{color:var(--muted)}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+  td.n{text-align:right;font-family:var(--mono)}
+  .scroll{overflow-x:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Populate the ESG corpus</h1>
+  <p class="sub">Spider each organization's published material, chunk it into the corpus, and let the
+     extractor read typed, cited observations from it.</p>
+
+  <div class="card">
+    <label for="domains">Domains — one per line</label>
+    <textarea id="domains" spellcheck="false">schott.com
+ferrero.com
+skf.com
+ricoh.co.uk
+axa.com</textarea>
+    <p class="hint">Bare domains. Each is crawled from its homepage, following links that look like
+       sustainability material in any of the languages these sites are written in.</p>
+
+    <div class="row">
+      <div>
+        <label for="maxPages">Pages per site</label>
+        <input id="maxPages" type="number" min="1" max="30" value="10">
+      </div>
+      <div>
+        <label for="delay">Delay (ms)</label>
+        <input id="delay" type="number" min="0" max="10000" step="250" value="1000">
+      </div>
+    </div>
+
+    <button id="go" class="bigred">Populate</button>
+
+    <div class="warn">
+      This fetches pages from third-party websites and costs one extraction call per document the
+      first time it is read. Nothing here runs on a schedule — the corpus only ever grows when
+      someone presses this.
+    </div>
+  </div>
+
+  <div class="card">
+    <label>Progress</label>
+    <pre id="log"></pre>
+  </div>
+
+  <div class="card">
+    <label>Coverage — what the corpus actually holds</label>
+    <p class="hint">The denominator for every comparison. A company absent here has not been
+       assessed, which is not the same as having disclosed nothing.</p>
+    <div class="scroll"><table id="coverage"><tbody></tbody></table></div>
+  </div>
+</div>
+
+<script>
+// Gateway only: every call is a fixed, named endpoint with parameters. The browser never sends
+// Cypher or script — reads go through the realm's saved views, writes through two named tools.
+const api = async (path, body) => {
+  const r = await fetch(path, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    credentials: 'same-origin', body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  return r.json();
+};
+const tool = (name, args) => api(`/api/v1/tools/${encodeURIComponent(name)}`, args);
+const view = (name, params) => api(`/api/v1/views/${encodeURIComponent(name)}/invoke`, params || {});
+
+const logEl = document.getElementById('log');
+const say = (msg, cls) => {
+  const s = document.createElement('span');
+  if (cls) s.className = cls;
+  s.textContent = msg + '\n';
+  logEl.appendChild(s);
+  logEl.scrollTop = logEl.scrollHeight;
+};
+
+// The crawler ranks links by term overlap with this hint. The material we are after is largely
+// European: an English-only hint misses /duurzaamheid/, /nachhaltigkeit and /governance-code-cultuur/,
+// which is where most of the actual disclosure lives.
+const HINT = 'sustainability duurzaamheid nachhaltigkeit durabilite responsabilite sostenibilita '
+           + 'hallbarhet baeredygtighed baerekraft esg csr environment milieu umwelt climate klimaat '
+           + 'klima emissions governance bestuur responsibility report jaarverslag';
+
+// The crawl tool returns pages separated by a rule, each headed '# title' then its url.
+function parsePages(result) {
+  const text = result.text || result.content || result.result || '';
+  return String(text).split('\n\n---\n\n').map(block => {
+    const lines = block.trim().split('\n');
+    if (lines.length < 2 || !lines[1].startsWith('http')) return null;
+    return {title: lines[0].replace(/^#\s*/, '').trim(), uri: lines[1].trim(), text: lines.slice(2).join('\n').trim()};
+  }).filter(Boolean);
+}
+
+async function refreshCoverage() {
+  const tbody = document.querySelector('#coverage tbody');
+  try {
+    const res = await view('EsgCoverage');
+    const rows = res.rows || res || [];
+    if (!rows.length) { tbody.innerHTML = '<tr><td class="dim">nothing assessed yet</td></tr>'; return; }
+    const cols = ['domain', 'documents', 'observations', 'disclosed', 'notDisclosed'];
+    tbody.innerHTML = '<tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr>' +
+      rows.map(r => '<tr>' + cols.map((c, i) =>
+        `<td${i ? ' class="n"' : ''}>${r[c] ?? ''}</td>`).join('') + '</tr>').join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td class="bad">coverage unavailable: ${e.message}</td></tr>`;
+  }
+}
+
+document.getElementById('go').addEventListener('click', async () => {
+  const btn = document.getElementById('go');
+  const domains = document.getElementById('domains').value.split('\n')
+    .map(s => s.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, ''))
+    .filter(s => s && !s.startsWith('#'));
+  if (!domains.length) return say('nothing to do — add at least one domain', 'bad');
+
+  const maxPages = Math.max(1, +document.getElementById('maxPages').value || 10);
+  const delay = Math.max(0, +document.getElementById('delay').value || 0);
+  const pause = ms => new Promise(r => setTimeout(r, ms));
+
+  btn.disabled = true;
+  btn.textContent = 'Populating…';
+  logEl.textContent = '';
+  say(`populating ${domains.length} domain(s), up to ${maxPages} pages each`, 'dim');
+
+  let totalDocs = 0;
+  for (const [i, domain] of domains.entries()) {
+    say(`\n[${i + 1}/${domains.length}] ${domain}`);
+    let pages;
+    try {
+      pages = parsePages(await tool('crawl', {url: `https://${domain}`, hint: HINT, max_pages: maxPages}));
+    } catch (e) { say(`  crawl failed: ${e.message}`, 'bad'); continue; }
+    if (!pages.length) { say('  no readable pages', 'bad'); continue; }
+    say(`  ${pages.length} page(s) fetched`, 'dim');
+
+    let n = 0;
+    for (const p of pages) {
+      if (p.text.length < 200) continue;              // nav shells carry no disclosure
+      try {
+        await tool('ingest', {content: p.text, uri: p.uri, title: p.title || domain,
+                              sourceKind: 'web', publishedByDomain: domain});
+        n++; totalDocs++;
+      } catch (e) { say(`  ingest failed ${p.uri}: ${e.message}`, 'bad'); }
+      if (delay) await pause(delay);                  // politeness, per host
+    }
+    say(`  ${n} document(s) ingested`, 'ok');
+  }
+
+  say(`\n${totalDocs} document(s) in the corpus.`, 'ok');
+  say('Extraction is graph-cached and runs on first read — open the Scorecard to trigger and see it.', 'dim');
+  await refreshCoverage();
+  btn.disabled = false;
+  btn.textContent = 'Populate';
+});
+
+refreshCoverage();
+</script>
+</body>
+</html>

@@ -1,0 +1,123 @@
+# The read surface. Prefer these over hand-written Cypher: they encode the joins that are easy to
+# get wrong (an observation joins its datapoint BY PROPERTY, not by edge) and — for anything that
+# aggregates — they carry the cohort size, because a comparison over an ESG corpus is only ever a
+# comparison of what has been assessed, never of a market.
+
+# ── What do we actually hold? Ask this FIRST, before any comparison. ─────────────────────────
+- name: EsgCoverage
+  description: >-
+    Which organizations have been assessed, how much material was read for each, and when. The
+    honest denominator for every other view here: a company absent from this list has not been
+    assessed, which is NOT the same as having disclosed nothing.
+  cypher: |
+    MATCH (d:Document) WHERE d.publishedByDomain IS NOT NULL
+    OPTIONAL MATCH (d)-[:HAS_OBSERVATIONS]->(o:EsgObservation)
+    WITH d.publishedByDomain AS domain,
+         count(DISTINCT d) AS documents,
+         count(o) AS observations,
+         sum(CASE WHEN o.value <> 'not_disclosed' THEN 1 ELSE 0 END) AS disclosed,
+         max(d.ingestedAt) AS lastAssessed
+    WHERE observations > 0
+    RETURN domain, documents, observations, disclosed,
+           observations - disclosed AS notDisclosed, lastAssessed
+    ORDER BY domain
+
+# ── One company, everything we read ──────────────────────────────────────────────────────────
+- name: EsgProfile
+  description: >-
+    Every datapoint observed for one organization, with the verbatim quote it was read from and
+    the chunk that quote lives in. Includes not_disclosed rows — what a company is SILENT on is a
+    finding, not a gap in the data.
+  params:
+    domain:
+      type: string
+      description: "The organization's domain as ingested, e.g. 'acme.com'."
+  cypher: |
+    MATCH (d:Document {publishedByDomain: $domain})-[:HAS_OBSERVATIONS]->(o:EsgObservation)
+    MATCH (dp:EsgDatapoint {id: o.datapointId})
+    RETURN dp.name AS datapoint, dp.answerType AS type, o.value AS value, o.unit AS unit,
+           o.period AS period, o.confidence AS confidence, o.quote AS evidence,
+           d.uri AS sourceUrl, o.sourceChunkId AS chunkId
+    ORDER BY dp.answerType, dp.name
+
+# ── The same observations, in one framework's language ───────────────────────────────────────
+- name: EsgFrameworkReport
+  description: >-
+    One organization's observations projected into a single reporting framework — GHG Protocol,
+    ESRS (CSRD), GRI, ISSB, SASB or IRIS+. This is the point of the realm: the data was captured
+    once and cited once, and each framework is a different rendering of it.
+    WARNING: requirement codes are PROVISIONAL (r.verified is false across 0.1.0) and must be
+    checked against the published standard before being quoted to anyone.
+  params:
+    domain:
+      type: string
+      description: "The organization's domain, e.g. 'acme.com'."
+    framework:
+      type: string
+      default: gri
+      description: "Framework id: ghg-protocol | esrs | gri | issb | sasb | iris-plus | vendor-baseline."
+  cypher: |
+    MATCH (f:EsgFramework {id: $framework})<-[:IN_FRAMEWORK]-(r:EsgRequirement)<-[:SATISFIES]-(dp:EsgDatapoint)
+    OPTIONAL MATCH (d:Document {publishedByDomain: $domain})-[:HAS_OBSERVATIONS]->(o:EsgObservation)
+      WHERE o.datapointId = dp.id
+    RETURN r.code AS code, r.title AS requirement, r.verified AS codeVerified,
+           dp.name AS datapoint,
+           coalesce(o.value, 'not_assessed') AS value, o.unit AS unit, o.period AS period,
+           o.quote AS evidence
+    ORDER BY r.code
+
+# ── What is this company NOT saying? The question a confirmation-only dataset cannot answer ──
+- name: EsgSilence
+  description: >-
+    Datapoints where the organization's published material says nothing. Distinguishes
+    'not_disclosed' (we read the material and it is silent) from 'not_assessed' (we never looked),
+    because conflating those is the defect that makes a scraped ESG dataset worthless.
+  params:
+    domain:
+      type: string
+      description: "The organization's domain, e.g. 'acme.com'."
+  cypher: |
+    MATCH (dp:EsgDatapoint)
+    OPTIONAL MATCH (d:Document {publishedByDomain: $domain})-[:HAS_OBSERVATIONS]->(o:EsgObservation)
+      WHERE o.datapointId = dp.id
+    WITH dp, o
+    WHERE o IS NULL OR o.value = 'not_disclosed'
+    RETURN dp.name AS datapoint, dp.answerType AS type,
+           CASE WHEN o IS NULL THEN 'not_assessed' ELSE 'not_disclosed' END AS status
+    ORDER BY status, dp.name
+
+# ── Comparison — ALWAYS with its n ────────────────────────────────────────────────────────────
+- name: EsgDisclosureComparison
+  description: >-
+    Disclosure rate for one datapoint across every organization assessed, grouped by industry.
+    The cohort is whatever has been assessed and is NOT a random sample of any market — companies
+    enter it because somebody asked about them. `companiesAssessed` is returned as a column rather
+    than a caveat for exactly that reason: the rate is meaningless without it.
+  params:
+    datapointId:
+      type: string
+      default: ghg_scope1
+      description: "Which datapoint to compare, e.g. 'ghg_scope1'."
+  cypher: |
+    MATCH (d:Document)-[:HAS_OBSERVATIONS]->(o:EsgObservation {datapointId: $datapointId})
+    OPTIONAL MATCH (org:Organization {domain: d.publishedByDomain})-[:IN_INDUSTRY]->(i:Industry)
+    WITH coalesce(i.name, 'unknown industry') AS industry,
+         count(DISTINCT d.publishedByDomain) AS companiesAssessed,
+         count(DISTINCT CASE WHEN o.value <> 'not_disclosed' THEN d.publishedByDomain END) AS disclosing
+    RETURN industry, companiesAssessed, disclosing,
+           round(100.0 * disclosing / companiesAssessed) AS pctDisclosing
+    ORDER BY companiesAssessed DESC
+
+# ── What can this realm see at all, and what does each thing feed? ───────────────────────────
+- name: EsgDatapointCatalogue
+  description: >-
+    Every datapoint this realm can observe, what form its answer takes, and which framework
+    requirements it satisfies. Read this to know what CAN be asked before asking it.
+  cypher: |
+    MATCH (dp:EsgDatapoint)
+    OPTIONAL MATCH (dp)-[:SATISFIES]->(r:EsgRequirement)-[:IN_FRAMEWORK]->(f:EsgFramework)
+    RETURN dp.id AS datapoint, dp.name AS name, dp.answerType AS answerType, dp.unit AS unit,
+           dp.sourceClass AS sourceClass,
+           collect(DISTINCT f.name) AS frameworks,
+           collect(DISTINCT r.code) AS requirementCodes
+    ORDER BY dp.answerType, dp.id
