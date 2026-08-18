@@ -1,34 +1,61 @@
 # Head to head
 
-Three companies, **the baseline's own cited URLs** as input, so the evidence is identical and any
-difference is extraction quality alone.
+Three companies — SCHOTT, AXA, Ricoh UK — using **the baseline's own cited URLs** as input, so the
+evidence is identical and every difference is analysis quality alone.
 
-## v0.8.1 — after the combined-scope fix, the graph cache, and per-window reduction
-
-107 baseline rows against 42 datapoint answers (14 each for three companies).
+## v0.9.2
 
 | | baseline | realm-esg |
 |---|---|---|
-| quantitative/open questions answered with a figure | **0 of 14** | **6 of 6** |
-| answers that are a negative / not-disclosed | 0.9% | 69.0% |
-| answered rows carrying evidence | 90.7% | **92.3%** |
-| same number reported under two datapoints | n/a | **0** |
+| rows / datapoint answers | 107 | 42 |
+| **distinct answer values across all rows** | 18 | 12 |
+| quantitative questions answered with a number | **0.0%** | **100%** |
+| answers that are an explicit negative | 0.9% | 66.7% |
+| answers carrying verbatim evidence | 90.7% | 92.9% |
+| evidence checkable offline (chunk retained) | no | **yes** |
+| same number reported under two datapoints | n/a | 0 |
 
-## The difference, in their own rows
+### The number that matters
 
-SCHOTT, asked about emissions:
+**69 of the baseline's 107 rows — 64% — are the single word "Yes".** Another 18 are
+"Very concerned" or "Concerned". Its 107 rows carry 18 distinct values between them; AXA's 31 rows
+carry **four**.
 
-| | |
-|---|---|
-| baseline | `PAS_CLI_ACT_IMP` → **"Yes"** |
-| realm-esg | `ghg_scope3` → **1,300,000 tCO₂e**, quoting *"Upstream and downstream emissions (Scope 3) amounted to around 1.3 million tonnes of CO₂"* |
+Ours are 30 quantities, 6 booleans and 6 narratives, and a quantity resolves to a figure with a
+unit or to `not_disclosed` — never to "Yes".
 
-AXA, asked about climate action:
+### Per company
 
-| | |
-|---|---|
-| baseline | `PAS_CLI_ACT_IMP` → **"Yes"** |
-| realm-esg | `ghg_reduction_target` → *"2030 interim targets as an insurer: 20% reduction in the carbon intensity…"* |
+| | baseline rows | their distinct answers | our datapoints | our disclosed |
+|---|---|---|---|---|
+| schott.com | 44 | 10 | 14 | 5 |
+| axa.com | 31 | **4** | 14 | 5 |
+| ricoh.co.uk | 32 | 12 | 14 | 4 |
+
+### The same question, the same page
+
+| company | their metric | baseline | realm-esg |
+|---|---|---|---|
+| schott.com | `ELE_USA_RED_MEA` | Yes | **100 percent** |
+| schott.com | `PAS_CLI_ACT_IMP` | Yes | *"Our climate strategy follows a clear hierarchy…"* |
+| axa.com | `ELE_USA_RED_MEA` | Yes | **100 percent** |
+| axa.com | `CAR_RED_INI` | "Yes, a formal policy" | *"2030 reduction targets as a business…"* |
+| ricoh.co.uk | `ELE_USA_RED_MEA` | "Measures … being implemented" | **50 percent** |
+| ricoh.co.uk | `PAS_CLI_ACT_IMP` | Yes | *"Our carbon reduction plan, pre…"* |
+
+### Where we say less than they do, and why that is the point
+
+On SCHOTT, `CAR_RED_INI` and `GHG_MEA_YN` are "Yes" in the baseline and `not_disclosed` for us. Two
+different reasons, both worth stating:
+
+- The mapping is imperfect. `GHG_MEA_YN` asks *"were you implementing steps to reduce GHG
+  emissions"* — a yes/no about effort, not a figure. It has no clean equivalent among our
+  quantities, and forcing one would be the same category error the baseline makes throughout.
+- Where it genuinely is a miss, it is a **visible** miss: the datapoint is listed as
+  `not_disclosed` rather than absent, so the gap is in the output rather than hidden by it.
+
+A dataset that answers "Yes" to everything is never wrong and never useful. Ours can be checked,
+which means it can also be caught — see the Scope 1+2 case below.
 
 ## The combined Scope 1+2 defect — fixed, with a residue
 
