@@ -67,8 +67,10 @@ that silently spiders hundreds of company websites is not something that should 
 The corpus grows only when someone asks. Two ways to ask:
 
 **In the appliance** — open the **Populate** app, paste domains, press the button. It crawls each
-site through the gateway, ingests what it finds, and shows coverage when it is done. Then open the
-**Scorecard** app: extraction is graph-cached and fires on the first read.
+site through the gateway for candidate URLs, then hands each URL to `POST /api/v1/documents/url`,
+which fetches and converts server-side — so PDFs, where most real sustainability reporting lives,
+are ingested too. Then open the **Scorecard** app: extraction is graph-cached and fires on the
+first read.
 
 **From a machine that can reach the appliance** — `scripts/populate.py` is a REST client, so it
 needs network and credentials, not disk access:

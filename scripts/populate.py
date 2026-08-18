@@ -37,9 +37,9 @@ HINT = ("sustainability duurzaamheid nachhaltigkeit durabilite responsabilite so
         "climate klimaat klima emissions governance bestuur responsibility report jaarverslag")
 
 
-def call(tool: str, payload: dict, timeout: int = 180) -> dict:
+def post(path: str, payload: dict, timeout: int = 180) -> dict:
     req = urllib.request.Request(
-        f"{BASE}/api/v1/tools/{tool}",
+        f"{BASE}{path}",
         data=json.dumps(payload).encode(),
         headers={"Content-Type": "application/json"},
         method="POST")
@@ -50,23 +50,42 @@ def call(tool: str, payload: dict, timeout: int = 180) -> dict:
     with urllib.request.urlopen(req, timeout=timeout) as r:
         body = r.read().decode()
     try:
-        return json.loads(body)
+        out = json.loads(body)
     except json.JSONDecodeError:
-        return {"text": body}
+        return {"result": body}
+    # The tool gateway reports refusals INSIDE a 200 envelope, so an unchecked status code reads a
+    # refusal as an empty success. Raise instead.
+    if isinstance(out, dict) and out.get("error"):
+        raise RuntimeError(out["error"])
+    return out
 
 
-def pages_of(result) -> list:
-    """The crawl tool returns pages separated by a --- rule, each headed '# title' then its url."""
-    text = result.get("text") or result.get("content") or json.dumps(result)
-    out = []
+def call(tool: str, payload: dict, timeout: int = 180) -> dict:
+    return post(f"/api/v1/tools/{tool}", payload, timeout)
+
+
+def ingest_url(url: str, domain: str) -> dict:
+    """Web pages have their own ingestion path: the server fetches and converts the URL itself,
+    which is also how PDFs — where most real sustainability reporting lives — get handled.
+    `ingest_document` is for text already pulled from an integration and explicitly not for web."""
+    return post("/api/v1/documents/url", {"url": url, "fromOrgDomain": domain, "tags": ["esg"]})
+
+
+def pages_of(envelope) -> list:
+    """The crawl tool returns pages separated by a --- rule, each headed '# title' then its url.
+    A successful gateway result is wrapped as {"result": ...}."""
+    body = envelope.get("result", envelope.get("text", envelope.get("content", "")))
+    text = body if isinstance(body, str) else json.dumps(body)
+    out, seen = [], set()
     for block in text.split("\n\n---\n\n"):
         lines = block.strip().splitlines()
-        if len(lines) < 2:
+        if len(lines) < 2 or not lines[1].startswith("http"):
             continue
-        title = lines[0].lstrip("# ").strip()
-        uri = lines[1].strip()
-        if uri.startswith("http"):
-            out.append({"title": title, "uri": uri, "text": "\n".join(lines[2:]).strip()})
+        uri = lines[1].strip().split("#")[0]          # a fragment is the same page, not another one
+        if not uri or uri in seen:
+            continue
+        seen.add(uri)
+        out.append({"title": lines[0].lstrip("# ").strip(), "uri": uri})
     return out
 
 
@@ -81,22 +100,14 @@ def populate(domain: str, max_pages: int, delay: float) -> dict:
 
     ingested = 0
     for p in pages:
-        if len(p["text"]) < 200:                              # nav shells carry no disclosure
-            continue
         try:
-            call("ingest", {
-                "content": p["text"],
-                "uri": p["uri"],
-                "title": p["title"] or domain,
-                "sourceKind": "web",
-                # The corpus partition key. Every observation for this company is reachable by it.
-                "publishedByDomain": domain,
-            })
+            ingest_url(p["uri"], domain)                       # fromOrgDomain is the partition key
             ingested += 1
         except Exception as e:
-            print(f"    ingest failed {p['uri']}: {str(e)[:120]}", file=sys.stderr)
+            print(f"\n    ingest failed {p['uri']}: {str(e)[:140]}", file=sys.stderr)
         time.sleep(delay)                                     # politeness, per host
-    return {"domain": domain, "status": "ok", "pages": len(pages), "ingested": ingested}
+    return {"domain": domain, "status": "ok" if ingested else "nothing_ingested",
+            "pages": len(pages), "ingested": ingested}
 
 
 def main() -> int:

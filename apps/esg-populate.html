@@ -108,11 +108,22 @@ const api = async (path, body) => {
     method: 'POST', headers: {'Content-Type': 'application/json'},
     credentials: 'same-origin', body: JSON.stringify(body)
   });
-  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
-  return r.json();
+  const text = await r.text();
+  let json = null;
+  try { json = text ? JSON.parse(text) : null; } catch { /* not json */ }
+  if (!r.ok) throw new Error(json?.message || json?.error || `${r.status} ${r.statusText}`);
+  // The tool gateway reports failures INSIDE a 200 envelope ({error: "..."}), so an unchecked
+  // r.ok reads a refusal as a success and then silently finds nothing. Surface it as an error.
+  if (json && json.error) throw new Error(json.error);
+  return json ?? {};
 };
 const tool = (name, args) => api(`/api/v1/tools/${encodeURIComponent(name)}`, args);
 const view = (name, params) => api(`/api/v1/views/${encodeURIComponent(name)}/invoke`, params || {});
+// Web pages have their OWN ingestion path: the server fetches and converts the URL itself, which
+// also means PDFs — where most real sustainability reporting actually lives — are handled.
+// (ingest_document is for text already fetched from an integration, and explicitly not for web.)
+const ingestUrl = (url, domain) =>
+  api('/api/v1/documents/url', {url, fromOrgDomain: domain, tags: ['esg']});
 
 const logEl = document.getElementById('log');
 const say = (msg, cls) => {
@@ -131,12 +142,19 @@ const HINT = 'sustainability duurzaamheid nachhaltigkeit durabilite responsabili
            + 'klima emissions governance bestuur responsibility report jaarverslag';
 
 // The crawl tool returns pages separated by a rule, each headed '# title' then its url.
-function parsePages(result) {
-  const text = result.text || result.content || result.result || '';
-  return String(text).split('\n\n---\n\n').map(block => {
+// The gateway wraps a successful tool result as {result: <value>}; older shapes used text/content.
+function parsePages(envelope) {
+  const body = envelope.result ?? envelope.text ?? envelope.content ?? '';
+  const text = typeof body === 'string' ? body : JSON.stringify(body);
+  const seen = new Set();
+  return text.split('\n\n---\n\n').map(block => {
     const lines = block.trim().split('\n');
     if (lines.length < 2 || !lines[1].startsWith('http')) return null;
-    return {title: lines[0].replace(/^#\s*/, '').trim(), uri: lines[1].trim(), text: lines.slice(2).join('\n').trim()};
+    // A fragment is the same page: #content and #footer are not two more documents to fetch.
+    const uri = lines[1].trim().split('#')[0];
+    if (!uri || seen.has(uri)) return null;
+    seen.add(uri);
+    return {title: lines[0].replace(/^#\s*/, '').trim(), uri};
   }).filter(Boolean);
 }
 
@@ -178,20 +196,18 @@ document.getElementById('go').addEventListener('click', async () => {
     try {
       pages = parsePages(await tool('crawl', {url: `https://${domain}`, hint: HINT, max_pages: maxPages}));
     } catch (e) { say(`  crawl failed: ${e.message}`, 'bad'); continue; }
-    if (!pages.length) { say('  no readable pages', 'bad'); continue; }
+    if (!pages.length) { say('  crawl returned no page with a url — site unreachable or blocked', 'bad'); continue; }
     say(`  ${pages.length} page(s) fetched`, 'dim');
 
     let n = 0;
     for (const p of pages) {
-      if (p.text.length < 200) continue;              // nav shells carry no disclosure
       try {
-        await tool('ingest', {content: p.text, uri: p.uri, title: p.title || domain,
-                              sourceKind: 'web', publishedByDomain: domain});
+        await ingestUrl(p.uri, domain);
         n++; totalDocs++;
       } catch (e) { say(`  ingest failed ${p.uri}: ${e.message}`, 'bad'); }
       if (delay) await pause(delay);                  // politeness, per host
     }
-    say(`  ${n} document(s) ingested`, 'ok');
+    say(`  ${n} document(s) ingested`, n ? 'ok' : 'bad');
   }
 
   say(`\n${totalDocs} document(s) in the corpus.`, 'ok');
