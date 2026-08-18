@@ -9,7 +9,7 @@ description: >
   (o:EsgObservation)-[:OF_DATAPOINT]->(d:EsgDatapoint)-[:SATISFIES]->(r:EsgRequirement)-[:IN_FRAMEWORK]->(f:EsgFramework).
   Every observation carries the chunk it came from, so a citation can be CHECKED rather than
   asserted. Absence of evidence is recorded as absence, never as assent.
-version: 0.4.2
+version: 0.4.3
 author: Embabel
 url: https://github.com/embabel/realm-esg
 tags:
@@ -21,6 +21,12 @@ tags:
   - sasb
   - disclosure
   - extraction
+# TYPE NAMES, not file paths — `isExported(name) = name in exports`. Listing paths here made
+# hasExplicitExports true with nothing matching, so EVERY type this realm declares was marked
+# realm-internal, dropped from World.repositoryTypes, and the reference seeder then rejected the
+# whole catalogue as "unknown reference type 'EsgFramework'" while the realm itself loaded fine.
 exports:
-  - types/esg.yml
-  - producers/esg.yml
+  - EsgFramework
+  - EsgRequirement
+  - EsgDatapoint
+  - EsgObservation
