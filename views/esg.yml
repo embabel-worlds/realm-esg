@@ -61,7 +61,19 @@
   cypher: |
     // ANCHOR THE JOIN ON ITS KEY FIELD (`uri`, the producer's anchorKeyProperty): the planner
     // materializes a virtual join only when it finds a predicate on that key in the pattern.
-    MATCH (d:Document)-[:HAS_OBSERVATIONS]->(o:EsgObservation)
+    // `ai: {materialize: true}` is the EXPLICIT opt-in past the cold-materialization cost gate,
+    // which refuses a query whose ESTIMATED cold model calls exceed the configured ceiling. Right
+    // for a passive read; wrong here — this view exists to READ documents and is what the Populate
+    // button calls, so the cost is the thing the user just asked for.
+    //
+    // Without it the failure is silent and LOAD-DEPENDENT: axa.com's two pages (280 + 86 chunks,
+    // ~7 windows) were refused together while either alone succeeded, and the refusal arrived as
+    // "the request was too broad" with no warning and no producer log line — one company silently
+    // skipped while the run reported success.
+    //
+    // The other views deliberately do NOT carry this: opening a scorecard must not be able to
+    // start an unbounded extraction run.
+    MATCH (d:Document)-[:HAS_OBSERVATIONS {ai: {materialize: true}}]->(o:EsgObservation)
     WHERE d.uri CONTAINS $domain
     // ONE ANSWER PER DATAPOINT. A long document is extracted in WINDOWS and every window answers
     // every datapoint — AXA's 280-chunk page makes five, so it holds 5 x 14 = 70 rows, most of them
