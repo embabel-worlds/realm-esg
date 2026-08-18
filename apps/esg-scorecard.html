@@ -134,6 +134,10 @@ async function render() {
     } else {
       el('title').textContent = 'Observations';
       el('subtitle').textContent = 'Every answer carries the sentence it was read from.';
+      // Force materialization before rendering: EsgProfile reaches observations through an
+      // OPTIONAL-friendly path, and on a corpus that has never been read that yields a blank page
+      // rather than the extraction the user came for.
+      try { await view('EsgExtract', {domain}); } catch (e) { /* surfaced by the render below */ }
       paint('main', [
         {label: 'Datapoint', cell: r => esc(r.datapoint)},
         {label: 'Type',      cell: r => `<span class="pill${r.type === 'quantity' ? ' q' : ''}">${esc(r.type)}</span>`},

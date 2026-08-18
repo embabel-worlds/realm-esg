@@ -41,6 +41,26 @@
            max(d.ingestionEpochMs) AS lastIngestedEpochMs
     ORDER BY domain
 
+# ── Force the read. This is what makes "populate" mean populate. ─────────────────────────────
+- name: EsgExtract
+  description: >-
+    Read one organization's ingested material and return every observation found. The traversal
+    here is deliberately NOT optional: extraction is graph-cached and materializes on first
+    traversal of HAS_OBSERVATIONS, and an OPTIONAL MATCH may never trigger it — so a corpus can sit
+    fully ingested and permanently unread. Running this is the step that turns documents into
+    observations. Slow the first time (one model call per document), instant afterwards until the
+    document changes.
+  params:
+    domain:
+      type: string
+      description: "The organization's domain, e.g. 'acme.com'."
+  cypher: |
+    MATCH (d:Document)-[:PUBLISHED_BY]->(org:Organization)
+    WHERE org.domain = $domain OR org.name = $domain
+    MATCH (d:Document)-[:HAS_OBSERVATIONS]->(o:EsgObservation)
+    RETURN d.uri AS document, o.datapointId AS datapoint, o.value AS value,
+           o.unit AS unit, o.period AS period, o.quote AS quote, o.sourceChunkId AS chunkId
+
 # ── One company, everything we read ──────────────────────────────────────────────────────────
 - name: EsgProfile
   description: >-

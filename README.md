@@ -66,7 +66,8 @@ Nothing populates on its own. The realm ships no `cron/`, no `events/` and no sc
 that silently spiders hundreds of company websites is not something that should wake up on its own.
 The corpus grows only when someone asks. Two ways to ask:
 
-**In the appliance** — open the **Populate** app, paste domains, press the button. It crawls each
+**In the appliance** — open the **Populate** app, paste domains, press the button. It crawls,
+ingests, **and reads**: the button does the whole job, and reports how many observations came back. It crawls each
 site through the gateway for candidate URLs, then hands each URL to `POST /api/v1/documents/url`,
 which fetches and converts server-side — so PDFs, where most real sustainability reporting lives,
 are ingested too. Then open the **Scorecard** app: extraction is graph-cached and fires on the
@@ -91,6 +92,7 @@ curl -XPOST "https://<appliance>/api/v1/admin/reference/seed?username=<you>"
 
 | View | Answers |
 |---|---|
+| `EsgExtract` | **forces the read** — the non-optional traversal that turns documents into observations |
 | `EsgCoverage` | what has been assessed — **the denominator for everything else** |
 | `EsgProfile` | one company's observations, with the quote each was read from |
 | `EsgFrameworkReport` | the same observations in one framework's language |

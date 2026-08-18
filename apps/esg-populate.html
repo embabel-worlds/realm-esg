@@ -166,6 +166,22 @@ function parsePages(envelope) {
   }).filter(Boolean);
 }
 
+// The catalogue is seeded by an explicit admin call and nothing announces its absence. Without
+// EsgDatapoint nodes the profile and framework views have nothing to join an observation to, so a
+// perfectly good extraction still renders as an empty page.
+async function checkCatalogue() {
+  try {
+    const rows = (await view('EsgDatapointCatalogue')).rows || [];
+    if (!rows.length) {
+      say('CATALOGUE NOT SEEDED - no datapoints exist. Populate will still ingest, but nothing', 'bad');
+      say('can be read or displayed until an admin runs:', 'bad');
+      say('  POST /api/v1/admin/reference/seed?username=<you>', 'bad');
+      return false;
+    }
+    return true;
+  } catch (e) { return true; }   // a view error is not proof of an unseeded catalogue
+}
+
 async function refreshCoverage() {
   const tbody = document.querySelector('#coverage tbody');
   try {
@@ -215,9 +231,10 @@ document.getElementById('go').addEventListener('click', async () => {
   btn.disabled = true;
   btn.textContent = 'Populating…';
   logEl.textContent = '';
+  await checkCatalogue();
   say(`populating ${targets.length} target(s), up to ${maxPages} pages each`, 'dim');
 
-  let totalDocs = 0;
+  let totalDocs = 0, totalObs = 0;
   for (const [i, t] of targets.entries()) {
     say(`\n[${i + 1}/${targets.length}] ${t.raw}`);
 
@@ -272,10 +289,28 @@ document.getElementById('go').addEventListener('click', async () => {
       if (delay) await pause(delay);                  // politeness, per host
     }
     say(`  ${n} document(s) ingested`, n ? 'ok' : 'bad');
+
+    // Ingesting is only half of it. Extraction is graph-cached and fires on the first traversal of
+    // HAS_OBSERVATIONS, so without this the corpus sits fully ingested and permanently unread —
+    // which is not what a button marked POPULATE should leave behind.
+    if (n) {
+      say(`  reading ${n} document(s) — one model call each, slow the first time...`, 'dim');
+      try {
+        const obs = (await view('EsgExtract', {domain: t.domain})).rows || [];
+        const said = obs.filter(o => o.value && o.value !== 'not_disclosed').length;
+        totalObs += obs.length;
+        say(`  ${obs.length} observation(s): ${said} disclosed, ${obs.length - said} not disclosed`,
+            obs.length ? 'ok' : 'bad');
+      } catch (e) { say(`  extraction failed: ${e.message}`, 'bad'); }
+    }
   }
 
-  say(`\n${totalDocs} document(s) in the corpus.`, 'ok');
-  say('Extraction is graph-cached and runs on first read — open the Scorecard to trigger and see it.', 'dim');
+  say(`\n${totalDocs} document(s) ingested, ${totalObs} observation(s) read.`, totalObs ? 'ok' : 'bad');
+  if (totalDocs && !totalObs) {
+    say('Documents are in but nothing was read from them. If the catalogue is unseeded the ' +
+        'extractor has no datapoints to look for.', 'bad');
+  }
+  say('Open the Scorecard for the values, their quotes, and any framework projection.', 'dim');
   await refreshCoverage();
   btn.disabled = false;
   btn.textContent = 'Populate';
