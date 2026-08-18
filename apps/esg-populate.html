@@ -48,7 +48,9 @@
   .warn{border-left:3px solid var(--warn);padding:10px 14px;margin-top:16px;color:var(--muted);font-size:13.5px;background:var(--bg);border-radius:0 8px 8px 0}
   #log{font:12.5px/1.65 var(--mono);white-space:pre-wrap;max-height:340px;overflow:auto;margin:0}
   #log:empty::after{content:"idle — nothing has been crawled";color:var(--muted)}
-  .ok{color:var(--ok)} .bad{color:var(--red)} .dim{color:var(--muted)}
+  /* Red belongs to the button and nothing else — a page of red error text competes with the one
+     control the user is meant to see. Failures read as amber, which is legible without shouting. */
+  .ok{color:var(--ok)} .bad{color:var(--warn)} .dim{color:var(--muted)}
   table{width:100%;border-collapse:collapse;font-size:13.5px}
   th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line)}
   th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
@@ -162,6 +164,7 @@ const ingestUrl = (url, domain) =>
   api('/api/v1/documents/url', {url, fromOrgDomain: domain, tags: ['esg']});
 
 const logEl = document.getElementById('log');
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const say = (msg, cls) => {
   const s = document.createElement('span');
   if (cls) s.className = cls;
@@ -248,7 +251,7 @@ async function refreshCoverage() {
       rows.map(r => '<tr>' + cols.map((c, i) =>
         `<td${i ? ' class="n"' : ''}>${r[c] ?? ''}</td>`).join('') + '</tr>').join('');
   } catch (e) {
-    tbody.innerHTML = `<tr><td class="bad">coverage unavailable: ${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td class="dim">coverage unavailable: ${esc(e.message)}</td></tr>`;
   }
 }
 
