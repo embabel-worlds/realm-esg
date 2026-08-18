@@ -1,25 +1,38 @@
 # The read surface. Prefer these over hand-written Cypher: they encode the joins that are easy to
-# get wrong (an observation joins its datapoint BY PROPERTY, not by edge) and — for anything that
-# aggregates — they carry the cohort size, because a comparison over an ESG corpus is only ever a
-# comparison of what has been assessed, never of a market.
+# get wrong and — for anything that aggregates — they carry the cohort size, because a comparison
+# over an ESG corpus is only ever a comparison of what has been assessed, never of a market.
+#
+# TWO JOINS THAT ARE NOT WHAT THEY LOOK LIKE, both verified against a live graph:
+#
+#   1. A document does NOT carry the publisher domain as a property. Ingestion resolves it onto the
+#      canonical Organization spine and MERGEs an edge:
+#          (d:Document)-[:PUBLISHED_BY]->(o:Organization)
+#      with o.domain (and o.name) holding the domain. Querying d.publishedByDomain returns nothing
+#      at all, silently — which is exactly how a corpus of 14 documents and 287 chunks reported
+#      itself as "nothing assessed".
+#   2. An observation joins its datapoint BY PROPERTY (o.datapointId), not by an edge.
 
 # ── What do we actually hold? Ask this FIRST, before any comparison. ─────────────────────────
 - name: EsgCoverage
   description: >-
-    Which organizations have been assessed, how much material was read for each, and when. The
+    Which organizations have material in the corpus, how much was read for each, and when. The
     honest denominator for every other view here: a company absent from this list has not been
     assessed, which is NOT the same as having disclosed nothing.
+    Lists a domain as soon as its DOCUMENTS land, before any extraction has run — `observations: 0`
+    means "ingested, not yet read", and hiding those rows made a successful populate look like a
+    failed one. `lastIngestedEpochMs` is the freshness anchor a re-populate checks before refetching.
   cypher: |
-    MATCH (d:Document) WHERE d.publishedByDomain IS NOT NULL
+    MATCH (d:Document)-[:PUBLISHED_BY]->(org:Organization)
+    WHERE 'esg' IN d.tags
+    OPTIONAL MATCH (c)-[:PART_OF|HAS_PARENT*]->(d)
+    WITH org, d, count(DISTINCT c) AS chunkCount
     OPTIONAL MATCH (d)-[:HAS_OBSERVATIONS]->(o:EsgObservation)
-    WITH d.publishedByDomain AS domain,
-         count(DISTINCT d) AS documents,
-         count(o) AS observations,
-         sum(CASE WHEN o.value <> 'not_disclosed' THEN 1 ELSE 0 END) AS disclosed,
-         max(d.ingestedAt) AS lastAssessed
-    WHERE observations > 0
-    RETURN domain, documents, observations, disclosed,
-           observations - disclosed AS notDisclosed, lastAssessed
+    RETURN coalesce(org.domain, org.name) AS domain,
+           count(DISTINCT d) AS documents,
+           sum(chunkCount) AS chunks,
+           count(o) AS observations,
+           sum(CASE WHEN o.value IS NOT NULL AND o.value <> 'not_disclosed' THEN 1 ELSE 0 END) AS disclosed,
+           max(d.ingestionEpochMs) AS lastIngestedEpochMs
     ORDER BY domain
 
 # ── One company, everything we read ──────────────────────────────────────────────────────────
@@ -33,7 +46,9 @@
       type: string
       description: "The organization's domain as ingested, e.g. 'acme.com'."
   cypher: |
-    MATCH (d:Document {publishedByDomain: $domain})-[:HAS_OBSERVATIONS]->(o:EsgObservation)
+    MATCH (d:Document)-[:PUBLISHED_BY]->(org:Organization)
+    WHERE org.domain = $domain OR org.name = $domain
+    MATCH (d)-[:HAS_OBSERVATIONS]->(o:EsgObservation)
     MATCH (dp:EsgDatapoint {id: o.datapointId})
     RETURN dp.name AS datapoint, dp.answerType AS type, o.value AS value, o.unit AS unit,
            o.period AS period, o.confidence AS confidence, o.quote AS evidence,
@@ -58,7 +73,9 @@
       description: "Framework id: ghg-protocol | esrs | gri | issb | sasb | iris-plus | vendor-baseline."
   cypher: |
     MATCH (f:EsgFramework {id: $framework})<-[:IN_FRAMEWORK]-(r:EsgRequirement)<-[:SATISFIES]-(dp:EsgDatapoint)
-    OPTIONAL MATCH (d:Document {publishedByDomain: $domain})-[:HAS_OBSERVATIONS]->(o:EsgObservation)
+    OPTIONAL MATCH (d:Document)-[:PUBLISHED_BY]->(org:Organization)
+      WHERE org.domain = $domain OR org.name = $domain
+    OPTIONAL MATCH (d)-[:HAS_OBSERVATIONS]->(o:EsgObservation)
       WHERE o.datapointId = dp.id
     RETURN r.code AS code, r.title AS requirement, r.verified AS codeVerified,
            dp.name AS datapoint,
@@ -78,7 +95,9 @@
       description: "The organization's domain, e.g. 'acme.com'."
   cypher: |
     MATCH (dp:EsgDatapoint)
-    OPTIONAL MATCH (d:Document {publishedByDomain: $domain})-[:HAS_OBSERVATIONS]->(o:EsgObservation)
+    OPTIONAL MATCH (d:Document)-[:PUBLISHED_BY]->(org:Organization)
+      WHERE org.domain = $domain OR org.name = $domain
+    OPTIONAL MATCH (d)-[:HAS_OBSERVATIONS]->(o:EsgObservation)
       WHERE o.datapointId = dp.id
     WITH dp, o
     WHERE o IS NULL OR o.value = 'not_disclosed'
@@ -99,11 +118,12 @@
       default: ghg_scope1
       description: "Which datapoint to compare, e.g. 'ghg_scope1'."
   cypher: |
-    MATCH (d:Document)-[:HAS_OBSERVATIONS]->(o:EsgObservation {datapointId: $datapointId})
-    OPTIONAL MATCH (org:Organization {domain: d.publishedByDomain})-[:IN_INDUSTRY]->(i:Industry)
+    MATCH (d:Document)-[:PUBLISHED_BY]->(org:Organization)
+    MATCH (d)-[:HAS_OBSERVATIONS]->(o:EsgObservation {datapointId: $datapointId})
+    OPTIONAL MATCH (org)-[:IN_INDUSTRY]->(i:Industry)
     WITH coalesce(i.name, 'unknown industry') AS industry,
-         count(DISTINCT d.publishedByDomain) AS companiesAssessed,
-         count(DISTINCT CASE WHEN o.value <> 'not_disclosed' THEN d.publishedByDomain END) AS disclosing
+         count(DISTINCT org) AS companiesAssessed,
+         count(DISTINCT CASE WHEN o.value <> 'not_disclosed' THEN org END) AS disclosing
     RETURN industry, companiesAssessed, disclosing,
            round(100.0 * disclosing / companiesAssessed) AS pctDisclosing
     ORDER BY companiesAssessed DESC

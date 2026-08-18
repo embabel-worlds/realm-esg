@@ -80,6 +80,10 @@ https://www.ricoh.co.uk/</textarea>
         <label for="delay">Delay (ms)</label>
         <input id="delay" type="number" min="0" max="10000" step="250" value="1000">
       </div>
+      <div>
+        <label for="ttl">Refetch after (days)</label>
+        <input id="ttl" type="number" min="0" max="3650" value="180">
+      </div>
     </div>
 
     <button id="go" class="bigred">Populate</button>
@@ -168,7 +172,7 @@ async function refreshCoverage() {
     const res = await view('EsgCoverage');
     const rows = res.rows || res || [];
     if (!rows.length) { tbody.innerHTML = '<tr><td class="dim">nothing assessed yet</td></tr>'; return; }
-    const cols = ['domain', 'documents', 'observations', 'disclosed', 'notDisclosed'];
+    const cols = ['domain', 'documents', 'chunks', 'observations', 'disclosed'];
     tbody.innerHTML = '<tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr>' +
       rows.map(r => '<tr>' + cols.map((c, i) =>
         `<td${i ? ' class="n"' : ''}>${r[c] ?? ''}</td>`).join('') + '</tr>').join('');
@@ -191,7 +195,22 @@ document.getElementById('go').addEventListener('click', async () => {
 
   const maxPages = Math.max(1, +document.getElementById('maxPages').value || 10);
   const delay = Math.max(0, +document.getElementById('delay').value || 0);
+  const ttlDays = Math.max(0, +document.getElementById('ttl').value || 0);
   const pause = ms => new Promise(r => setTimeout(r, ms));
+
+  // Freshness, so a re-run is not a re-crawl. Checked PER DOMAIN rather than per URL on purpose:
+  // a site that geo-redirects serves /en-us on one run and /en-au on the next, so the same content
+  // arrives under different URIs and URL-level dedup never fires — which is how one site came to
+  // hold fourteen documents of seven pages. Set the TTL to 0 to force a refetch.
+  const fresh = new Map();
+  if (ttlDays > 0) {
+    try {
+      for (const r of (await view('EsgCoverage')).rows || []) {
+        if (r.lastIngestedEpochMs) fresh.set(r.domain, Number(r.lastIngestedEpochMs));
+      }
+    } catch (e) { say(`could not read coverage, refetching everything: ${e.message}`, 'dim'); }
+  }
+  const ttlMs = ttlDays * 86400000;
 
   btn.disabled = true;
   btn.textContent = 'Populating…';
@@ -201,6 +220,13 @@ document.getElementById('go').addEventListener('click', async () => {
   let totalDocs = 0;
   for (const [i, t] of targets.entries()) {
     say(`\n[${i + 1}/${targets.length}] ${t.raw}`);
+
+    const last = fresh.get(t.domain);
+    if (last && (Date.now() - last) < ttlMs) {
+      const ageDays = Math.floor((Date.now() - last) / 86400000);
+      say(`  current — last read ${ageDays}d ago, inside the ${ttlDays}d window. Skipped.`, 'dim');
+      continue;
+    }
 
     // A URL is a deliberate pointer — ingest it as given. Sustainability reporting is very often a
     // PDF, and the ingestion endpoint fetches and converts it server-side, so there is nothing to
@@ -234,7 +260,11 @@ document.getElementById('go').addEventListener('click', async () => {
     say(`  ${pages.length} page(s) from ${startUrl}`, 'dim');
 
     let n = 0;
-    for (const p of pages) {
+    for (const [j, p] of pages.entries()) {
+      // Ingestion fetches, converts, chunks and embeds server-side, which for a heavy page is tens
+      // of seconds. Announce the URL BEFORE the call: silence during a slow document is otherwise
+      // indistinguishable from a hang, and a 1,600-chunk site looked exactly like one.
+      say(`  (${j + 1}/${pages.length}) ${p.uri}`, 'dim');
       try {
         await ingestUrl(p.uri, t.domain);
         n++; totalDocs++;

@@ -80,7 +80,8 @@ EMBABEL_URL=https://<appliance> EMBABEL_USER=… EMBABEL_PASS=… \
   python3 scripts/populate.py domains.txt --max-pages 10
 ```
 
-Before either, seed the catalogue once:
+**Seeding is not optional and is not automatic.** Until it runs there are no `EsgDatapoint` nodes,
+so the framework views return nothing even when the corpus is full. Seed once per user:
 
 ```bash
 curl -XPOST "https://<appliance>/api/v1/admin/reference/seed?username=<you>"
@@ -128,9 +129,10 @@ Honest about what is and is not done:
 - **13 datapoints, not 97.** A slice where several frameworks genuinely overlap — climate,
   energy, water, safety, diversity, governance. Only 11 of the benchmark's 97 metrics map onto
   them, so the diff is partial and says so.
-- **Nothing here has been run against a live app.** The scripts compile and the apps have no
-  external dependencies, but neither the views, the apps, the seed step nor the extraction have
-  been exercised end to end.
+- **Verified against a live appliance:** ingestion, the `PUBLISHED_BY` join, and every view's
+  Cypher. A real run held 20 documents and 1,891 chunks across two domains.
+- **Not yet verified:** extraction itself. No `EsgObservation` has ever been produced, so the
+  typed-answer discipline — the entire premise — is still unproven.
 - **No skill yet**, so population and querying are app- and script-driven rather than available
   from chat.
 - **No versioning.** Observations are replaced when a document changes, not superseded. "Who
