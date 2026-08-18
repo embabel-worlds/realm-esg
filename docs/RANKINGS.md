@@ -83,3 +83,55 @@ longer appears in the ranking at all, which is correct.
 
 **Units are as published and are NOT converted.** A ranking across mixed units is wrong rather than
 approximate; read `unit` before comparing.
+
+---
+
+# With firmographics joined (1.7.1)
+
+`realm-diffbot` is installed on the appliance and `scripts/enrich-subjects.py` resolves every
+assessed domain into an `EsgSubject` — industry, headcount, country, listed or not.
+
+## Peer ranking
+
+| company | industry | staff | country | disclosed | |
+|---|---|---|---|---|---|
+| espersen.com | Food & Drink | 171 | Denmark | 14/14 (100%) | |
+| schott.com | Glassmaking | 17,392 | Germany | 6/14 (43%) | |
+| ucb.com | Pharmaceutical | 9,765 | US* | 6/14 (43%) | |
+| axa.com | Insurance | 107,756 | France | 5/14 (36%) | |
+| ferrero.com | Food | 47,212 | Italy | 3/14 (21%) | |
+| cisco.com | Security Software | 560 | US | 2/14 (14%) | **IDENTITY SUSPECT** |
+
+## Size does not predict disclosure
+
+| size band | companies | disclosed |
+|---|---|---|
+| under 250 | 3 | **43%** |
+| over 5k | 4 | 36% |
+| 250–5k | 1 | 14% |
+
+The expected story — big companies disclose more — **does not hold here**. A 171-person Danish fish
+processor discloses everything because it publishes a proper sustainability report, while several
+multinationals publish marketing pages. Size predicts reporting FORMAT more than transparency. The
+cohort is nine, so this is a hypothesis worth testing at scale, not a finding.
+
+## The sector view is honest about being useless right now
+
+Every industry has `companies: 1`. That is what the cohort column is for: a sector represented by
+one company is an anecdote wearing a percentage. The view reports it rather than hiding it behind a
+confident-looking rate, and it becomes useful at a few dozen companies per sector.
+
+## The guard that earned itself immediately
+
+Diffbot resolves `cisco.com` to **Sourcefire** — a company Cisco acquired — with 560 employees and
+`nbOrigins: 170`. A confident wrong answer that the coverage signal does not catch, and one that
+would have put Cisco in "Security Software" at 1/160th of its real headcount.
+
+`domainNameMatch` catches it by asking whether the domain's own label survives in the resolved name.
+It passes `hollandmalt` → "Holland Malt", `aet-tankers` → "AET", `espersen` → "A. Espersen", and
+fails exactly the one that is wrong. `EsgPeerRanking` flags the row; `EsgSectorComparison` excludes
+it, because a wrong industry moves two sector averages at once.
+
+\* UCB is Belgian; Diffbot reports its PRIMARY LOCATION as the US. `country` is where Diffbot thinks
+the company operates from, never country of legal registration — the distinction that made the
+baseline's TLD-inferred registrations worthless.
