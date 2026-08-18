@@ -71,9 +71,20 @@ def main() -> int:
             "MATCH (c:ContentElement) WHERE c.id IN " +
             json.dumps(sorted({a["chunkId"] for a in answers if a.get("chunkId")})) +
             " RETURN c.id AS id, c.text AS text")}
-        source = " ".join(r["text"] or "" for r in cypher(
-            f"MATCH (c:ContentElement)-[:HAS_PARENT*]->(d:Document) WHERE d.uri CONTAINS '{dom}' "
-            f"RETURN c.text AS text"))
+        # PAGE THE SOURCE. A single query came back with 366 of this domain's 396 chunks — the
+        # read surface caps rows — so a quote living in one of the missing 30 was reported as
+        # FABRICATED. An audit that invents defects is worse than no audit: it would have had us
+        # "fix" correct extractions. Read in pages until a page comes back short.
+        source, skip, PAGE = [], 0, 100
+        while True:
+            page = cypher(f"MATCH (c:ContentElement)-[:HAS_PARENT*]->(d:Document) "
+                          f"WHERE d.uri CONTAINS '{dom}' RETURN c.text AS text "
+                          f"SKIP {skip} LIMIT {PAGE}")
+            source += [r["text"] or "" for r in page]
+            if len(page) < PAGE:
+                break
+            skip += PAGE
+        source = " ".join(source)
 
         for a in answers:
             dp, val, quote = a["datapoint"], str(a.get("value")), a.get("quote") or ""

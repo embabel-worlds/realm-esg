@@ -154,7 +154,12 @@
         - rule: regex
           # [\s\S] not `.` — a dot does NOT match a newline, so a perfectly good quote
           # spanning two lines failed this and was dropped. Two of fourteen on the first run.
-          pattern: "^(NONE|[\\s\\S]{25,})$"
+          # No ellipsis. A quote containing "..." or "…" has had text REMOVED and presented as
+          # verbatim, which is the most dangerous defect available here: it reads like evidence,
+          # matches nothing in the source, and cannot be verified by anyone. Found in the wild —
+          # "2030 interim targets as an insurer: ... and 20% reduction in the carbon intensity"
+          # appears in zero chunks of the page it claims to come from, because the middle was cut.
+          pattern: "^(NONE|(?![\\s\\S]*(\\.\\.\\.|\u2026))[\\s\\S]{25,})$"
     confidence:
       description: >-
         How directly the quote supports the value: `direct` when the quote states it outright,

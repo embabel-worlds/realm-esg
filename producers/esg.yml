@@ -87,6 +87,9 @@
           assembled from separate places. Copy it character for character from the excerpt. When
           value is "not_disclosed", set quote to the literal string NONE. Every record carries this
           field: there is no third option, and a record without it is discarded.
+          NEVER shorten a quote with "..." or "…". A quote with anything removed is not verbatim,
+          matches nothing in the source, and is discarded. If the sentence is long, quote a
+          shorter CONTIGUOUS run of it instead.
         - "confidence": "direct" when the quote states the answer outright; "inferred" when you
           read it from surrounding context; "not_disclosed" when the value is "not_disclosed"
           (there is no quote to support, so neither of the others applies). If you would need to
