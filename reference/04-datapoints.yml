@@ -33,8 +33,9 @@
     question: >-
       Does the published material report the organization's Scope 1 (direct) greenhouse gas
       emissions? If so, give the figure exactly as published, its unit, and the reporting period
-      it covers. If the material does not state a Scope 1 figure, answer not_disclosed — do not
-      infer one from any other number.
+      it covers. A figure the material gives for "Scope 1 and 2" TOGETHER is NOT a Scope 1 figure:
+      answer not_disclosed here and record it under ghg_scope1_and_2. If the material does not
+      state a Scope 1 figure, answer not_disclosed — do not infer one from any other number.
   relations:
     - { predicate: SATISFIES, to: { type: EsgRequirement, id: ghgp-scope1 } }
     - { predicate: SATISFIES, to: { type: EsgRequirement, id: esrs-e1-6 } }
@@ -56,7 +57,9 @@
       Does the published material report location-based Scope 2 (purchased energy) greenhouse
       gas emissions? Give the figure, unit and period exactly as published. If the material
       reports Scope 2 without saying whether it is location- or market-based, record it here and
-      note the ambiguity in the quote. If no Scope 2 figure is stated, answer not_disclosed.
+      note the ambiguity in the quote. A figure given for "Scope 1 and 2" TOGETHER is NOT a Scope 2
+      figure: answer not_disclosed here and record it under ghg_scope1_and_2. If no Scope 2 figure
+      is stated, answer not_disclosed.
   relations:
     - { predicate: SATISFIES, to: { type: EsgRequirement, id: ghgp-scope2-location } }
     - { predicate: SATISFIES, to: { type: EsgRequirement, id: esrs-e1-6 } }
@@ -99,6 +102,27 @@
     - { predicate: SATISFIES, to: { type: EsgRequirement, id: ghgp-scope3 } }
     - { predicate: SATISFIES, to: { type: EsgRequirement, id: esrs-e1-6 } }
     - { predicate: SATISFIES, to: { type: EsgRequirement, id: gri-305-3 } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: issb-s2-ghg } }
+
+- type: EsgDatapoint
+  data:
+    id: ghg_scope1_and_2
+    name: Combined Scope 1 and 2 GHG emissions
+    answerType: quantity
+    unit: tCO2e
+    sourceClass: self-disclosure
+    staleAfter: 365d
+    requiresPeriod: true
+    question: >-
+      Does the published material report Scope 1 and Scope 2 emissions ONLY as a single combined
+      figure, without giving each separately? If so, give that combined figure, its unit and the
+      period. If the material breaks the two out separately, answer not_disclosed here and record
+      each under its own datapoint instead. Never report the same number twice.
+  relations:
+    # A combined figure answers a framework that asks for gross emissions and a total; it does NOT
+    # answer one that asks for each scope separately, which is the point of keeping it distinct
+    # rather than splitting it. GRI 305-1 and 305-2 are deliberately absent.
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: esrs-e1-6 } }
     - { predicate: SATISFIES, to: { type: EsgRequirement, id: issb-s2-ghg } }
 
 # ── Climate: targets and plans ───────────────────────────────────────────────────────────────

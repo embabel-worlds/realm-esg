@@ -123,6 +123,7 @@
             - ghg_scope2_location
             - ghg_scope2_market
             - ghg_scope3
+            - ghg_scope1_and_2
             - ghg_reduction_target
             - climate_transition_plan
             - energy_consumption_total

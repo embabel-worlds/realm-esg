@@ -173,6 +173,27 @@
    ]
   },
   {
+   "id": "ghg_scope1_and_2",
+   "name": "Combined Scope 1 and 2 GHG emissions",
+   "answerType": "quantity",
+   "unit": "tCO2e",
+   "sourceClass": "self-disclosure",
+   "requirements": [
+    {
+     "code": "E1-6",
+     "title": "Gross Scopes 1, 2, 3 and total GHG emissions",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "S2 Metrics",
+     "title": "Gross Scopes 1, 2 and 3 greenhouse gas emissions",
+     "framework": null,
+     "verified": false
+    }
+   ]
+  },
+  {
    "id": "ghg_reduction_target",
    "name": "GHG emissions reduction target",
    "answerType": "narrative",

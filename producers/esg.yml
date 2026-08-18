@@ -39,13 +39,15 @@
       Answer each of the following datapoints FROM THESE EXCERPTS ONLY.
 
         - id: ghg_scope1  (quantity, unit tCO2e, period required)
-          Does the published material report the organization's Scope 1 (direct) greenhouse gas emissions? If so, give the figure exactly as published, its unit, and the reporting period it covers. If the material does not state a Scope 1 figure, answer not_disclosed — do not infer one from any other number.
+          Does the published material report the organization's Scope 1 (direct) greenhouse gas emissions? If so, give the figure exactly as published, its unit, and the reporting period it covers. A figure the material gives for "Scope 1 and 2" TOGETHER is NOT a Scope 1 figure: answer not_disclosed here and record it under ghg_scope1_and_2. If the material does not state a Scope 1 figure, answer not_disclosed — do not infer one from any other number.
         - id: ghg_scope2_location  (quantity, unit tCO2e, period required)
-          Does the published material report location-based Scope 2 (purchased energy) greenhouse gas emissions? Give the figure, unit and period exactly as published. If the material reports Scope 2 without saying whether it is location- or market-based, record it here and note the ambiguity in the quote. If no Scope 2 figure is stated, answer not_disclosed.
+          Does the published material report location-based Scope 2 (purchased energy) greenhouse gas emissions? Give the figure, unit and period exactly as published. If the material reports Scope 2 without saying whether it is location- or market-based, record it here and note the ambiguity in the quote. A figure given for "Scope 1 and 2" TOGETHER is NOT a Scope 2 figure: answer not_disclosed here and record it under ghg_scope1_and_2. If no Scope 2 figure is stated, answer not_disclosed.
         - id: ghg_scope2_market  (quantity, unit tCO2e, period required)
           Does the published material report market-based Scope 2 greenhouse gas emissions — i.e. reflecting contractual instruments such as renewable energy certificates or PPAs? Give the figure, unit and period as published, or not_disclosed.
         - id: ghg_scope3  (quantity, unit tCO2e, period required)
           Does the published material report Scope 3 (value chain) greenhouse gas emissions? Give the total figure, unit and period as published, and note which categories it says are included. A partial Scope 3 covering only some categories is still a reported figure — record it and say so in the quote. If none is stated, answer not_disclosed.
+        - id: ghg_scope1_and_2  (quantity, unit tCO2e, period required)
+          Does the published material report Scope 1 and Scope 2 emissions ONLY as a single combined figure, without giving each separately? If so, give that combined figure, its unit and the period. If the material breaks the two out separately, answer not_disclosed here and record each under its own datapoint instead. Never report the same number twice.
         - id: ghg_reduction_target  (narrative)
           Does the published material state a greenhouse gas reduction target? If so, quote it — including the percentage or absolute reduction, the baseline year, and the target year. A stated ambition without a figure or date is still a target: quote it as published rather than converting it into one. If no target is stated, answer not_disclosed.
         - id: climate_transition_plan  (narrative)
@@ -96,4 +98,9 @@
          nothing. A cookie policy, a privacy notice and terms-and-conditions support nothing.
       5. Every non-"not_disclosed" answer MUST carry a verbatim quote from a numbered excerpt.
          No quote means no answer.
-      6. Answer only for the ids listed. Skip anything else the text happens to contain.
+      6. ONE FIGURE ANSWERS ONE DATAPOINT. Never report the same number under two ids. A source
+         that gives "Scope 1 and 2" as a single total has NOT disclosed either scope separately:
+         record the total under ghg_scope1_and_2 and answer not_disclosed for ghg_scope1 and for
+         ghg_scope2_location. Splitting a combined figure invents a precision the source does not
+         have, and doubles the emissions when the two are added up.
+      7. Answer only for the ids listed. Skip anything else the text happens to contain.
