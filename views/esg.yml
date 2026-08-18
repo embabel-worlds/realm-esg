@@ -255,3 +255,106 @@
     OPTIONAL MATCH (c:Chunk)-[:HAS_PARENT*]->(d:Document)
     RETURN d.uri AS uri, d.title AS title, count(c) AS chunks
     ORDER BY chunks DESC
+
+# ── RANKING AND SCORING ──────────────────────────────────────────────────────────────────────
+# These read PERSISTED observations and never trigger extraction, so they are cheap enough to
+# poll. They became possible only once the producer declared `cache: { kind: graph }`: while
+# observations were transient, EsgObservation was a virtual label and the engine refused to bind
+# one except from a bound anchor — no query could sweep every company at once. Persisted, they are
+# ordinary nodes.
+#
+# EVERY ONE OF THESE RETURNS ITS COHORT. A rate over an ESG corpus is a rate over whatever has been
+# assessed — companies enter it because somebody asked about them, not because they were sampled —
+# so `companies` and `assessed` are columns, never footnotes. A score without its n is not a score.
+
+- name: EsgLeaderboard
+  description: >-
+    Companies ranked by how much of the catalogue they actually disclose. This ranks DISCLOSURE,
+    not performance: a company that publishes a large emissions figure ranks ABOVE one that
+    publishes nothing, which is the honest ordering when the source is the company's own material.
+    `assessed` is the denominator — a low rate on 4 datapoints means something different from a low
+    rate on 14.
+  cypher: |
+    MATCH (o:EsgObservation)
+    WITH replace(split(replace(replace(o.docUri, 'https://', ''), 'http://', ''), '/')[0], 'www.', '') AS company,
+         o.datapointId AS dp,
+         max(CASE WHEN o.value <> 'not_disclosed' THEN 1 ELSE 0 END) AS disclosed
+    WITH company, count(dp) AS assessed, sum(disclosed) AS disclosing
+    RETURN company, assessed, disclosing,
+           round(100.0 * disclosing / assessed) AS pctDisclosed
+    ORDER BY pctDisclosed DESC, company
+
+- name: EsgDatapointRarity
+  description: >-
+    How many of the assessed companies disclose each datapoint, rarest first. Answers "what does
+    almost nobody publish" — the questions where a disclosure is a genuine differentiator, and
+    where an absence says little because absence is the norm.
+  cypher: |
+    MATCH (o:EsgObservation)
+    WITH o.datapointId AS dpId,
+         replace(split(replace(replace(o.docUri, 'https://', ''), 'http://', ''), '/')[0], 'www.', '') AS company,
+         max(CASE WHEN o.value <> 'not_disclosed' THEN 1 ELSE 0 END) AS disclosed
+    WITH dpId, count(company) AS companies, sum(disclosed) AS disclosing
+    OPTIONAL MATCH (dp:EsgDatapoint {id: dpId})
+    RETURN coalesce(dp.name, dpId) AS datapoint, dp.answerType AS type,
+           companies, disclosing,
+           round(100.0 * disclosing / companies) AS pctDisclosing
+    ORDER BY pctDisclosing ASC, datapoint
+
+- name: EsgMetricRanking
+  description: >-
+    Every company that publishes a figure for one quantitative datapoint, ranked by that figure,
+    with the sentence each was read from. THE UNITS ARE AS PUBLISHED AND ARE NOT CONVERTED — one
+    company may report tonnes and another kilotonnes, so read `unit` before comparing, and treat a
+    ranking across mixed units as wrong rather than approximate. Companies absent from the result
+    did not publish the figure; that is not a zero.
+  params:
+    datapointId:
+      type: string
+      default: ghg_scope1
+      description: "A quantitative datapoint id, e.g. 'ghg_scope1' or 'renewable_energy_share'."
+  cypher: |
+    MATCH (o:EsgObservation {datapointId: $datapointId})
+    WHERE o.value <> 'not_disclosed' AND toFloat(o.value) IS NOT NULL
+    WITH replace(split(replace(replace(o.docUri, 'https://', ''), 'http://', ''), '/')[0], 'www.', '') AS company,
+         toFloat(o.value) AS figure, o.unit AS unit, o.period AS period, o.quote AS evidence
+    RETURN company, figure, unit, period, evidence
+    ORDER BY figure DESC
+
+- name: EsgConfidence
+  description: >-
+    A quality signal per company rather than a content one: how many of its answers carry a
+    verbatim quote, and how strongly the extraction windows agreed. A datapoint found by 1 window
+    of 9 is weaker evidence than one found by 8 of 9 — the low-agreement answers are where the
+    wrong-population and wrong-scope errors have actually turned up, so this is the column to sort
+    by when deciding what a person should read first.
+  cypher: |
+    MATCH (o:EsgObservation)
+    WHERE o.value <> 'not_disclosed'
+    WITH replace(split(replace(replace(o.docUri, 'https://', ''), 'http://', ''), '/')[0], 'www.', '') AS company,
+         o.datapointId AS dp,
+         count(*) AS windowsRead,
+         sum(CASE WHEN o.quote IS NOT NULL AND o.quote <> 'NONE' THEN 1 ELSE 0 END) AS quoted
+    WITH company, count(dp) AS disclosed, sum(windowsRead) AS windowAnswers, sum(quoted) AS quoted
+    RETURN company, disclosed, quoted,
+           round(100.0 * quoted / windowAnswers) AS pctQuoted
+    ORDER BY pctQuoted ASC, company
+
+- name: EsgTypeProfile
+  description: >-
+    What KIND of disclosure each company makes: figures, narrative commitments, or bare yes/no.
+    The distinction the baseline questionnaire cannot express — it answers everything "Yes", so a
+    company publishing audited tonnages and one publishing a mission statement score identically.
+    A high `quantities` count is a company you can actually compute with.
+  cypher: |
+    MATCH (o:EsgObservation)
+    WHERE o.value <> 'not_disclosed'
+    MATCH (dp:EsgDatapoint {id: o.datapointId})
+    WITH replace(split(replace(replace(o.docUri, 'https://', ''), 'http://', ''), '/')[0], 'www.', '') AS company,
+         dp.id AS dpId, dp.answerType AS kind
+    WITH company, kind, count(DISTINCT dpId) AS n
+    RETURN company,
+           sum(CASE WHEN kind = 'quantity'  THEN n ELSE 0 END) AS quantities,
+           sum(CASE WHEN kind = 'narrative' THEN n ELSE 0 END) AS narratives,
+           sum(CASE WHEN kind = 'boolean'   THEN n ELSE 0 END) AS booleans
+    ORDER BY quantities DESC, narratives DESC, company

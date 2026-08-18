@@ -55,7 +55,7 @@
         - id: energy_consumption_total  (quantity, unit MWh, period required)
           Does the published material report total energy consumption? Give the figure and its unit exactly as published — do NOT convert between units — plus the period. If none is stated, answer not_disclosed.
         - id: renewable_energy_share  (quantity, unit percent, period required)
-          Does the published material state what proportion of the organization's energy comes from renewable sources? Give the percentage as published. A claim of "100% renewable electricity" is a figure — record 100 and quote the scope it applies to, since electricity is usually a subset of total energy. If no proportion is stated, answer not_disclosed.
+          Does the published material state what proportion of the organization's energy comes from renewable sources TODAY? Give the percentage as published. A claim of "100% renewable electricity" is a figure — record 100 and quote the scope it applies to, since electricity is usually a subset of total energy. A FUTURE COMMITMENT IS NOT A CURRENT SHARE. "We have committed to 50% renewable by 2030" and "we aim to reach 100%" state a target, not what is being consumed now — answer not_disclosed here. Record the commitment under a target datapoint if one fits, and never let a pledge be ranked as an achievement.
         - id: water_withdrawal_total  (quantity, unit m3, period required)
           Does the published material report total water withdrawn or consumed? Give the figure, unit and period as published, and note whether it says withdrawal or consumption — they are different quantities and must not be conflated. If none is stated, answer not_disclosed.
         - id: safety_incident_rate  (quantity, unit rate, period required)
@@ -139,7 +139,13 @@
          is clear but the population is different from the one asked about, the answer is
          not_disclosed — a right number about the wrong thing is a wrong answer that reads as a
          right one, and it is the hardest kind for a reader to catch.
-      9. Answer only for the ids listed. Skip anything else the text happens to contain.
+      9. A PLEDGE IS NOT AN ACHIEVEMENT. "50% renewable by 2030", "net zero by 2050", "we aim to
+         halve emissions" describe the future; a datapoint asking what the organization does NOW is
+         answered not_disclosed by them. Only ghg_reduction_target and climate_transition_plan ask
+         about commitments. Ranking a pledge alongside a measurement makes a company that promised
+         look like a company that delivered, which is the most flattering error available and
+         therefore the one to be most careful about.
+      10. Answer only for the ids listed. Skip anything else the text happens to contain.
 
   # PERSIST. Without this the producer is transient: every traversal re-runs the model, nothing is
   # written, and MATCH (o:EsgObservation) in raw Neo4j returns zero however many observations a view

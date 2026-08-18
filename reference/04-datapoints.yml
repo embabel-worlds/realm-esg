@@ -193,9 +193,13 @@
     requiresPeriod: true
     question: >-
       Does the published material state what proportion of the organization's energy comes from
-      renewable sources? Give the percentage as published. A claim of "100% renewable
+      renewable sources TODAY? Give the percentage as published. A claim of "100% renewable
       electricity" is a figure — record 100 and quote the scope it applies to, since electricity
-      is usually a subset of total energy. If no proportion is stated, answer not_disclosed.
+      is usually a subset of total energy.
+      A FUTURE COMMITMENT IS NOT A CURRENT SHARE. "We have committed to 50% renewable by 2030" and
+      "we aim to reach 100%" state a target, not what is being consumed now — answer not_disclosed
+      here. Record the commitment under a target datapoint if one fits, and never let a pledge be
+      ranked as an achievement.
   relations:
     - { predicate: SATISFIES, to: { type: EsgRequirement, id: esrs-e1-5 } }
     - { predicate: SATISFIES, to: { type: EsgRequirement, id: gri-302-1 } }
