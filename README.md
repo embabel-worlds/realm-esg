@@ -56,7 +56,8 @@ an answer to the form its own question demands.
 | `scripts/populate.py` | batch spider → corpus |
 | `scripts/headtohead.py` | the scorecard |
 | `views/esg.yml` | the read surface — coverage, profile, framework projection, silence, comparison |
-| `apps/esg-populate.html` | **the big red button** — spider domains into the corpus |
+| `apps/esg-populate.html` | **the big red button** — spider domains into the corpus, then read them |
+| `apps/esg-population.json` | **population policy** — crawl hint, URL exclusions, budgets, TTL |
 | `apps/esg-scorecard.html` | what a company discloses, typed and cited, in any framework's language |
 | `scripts/check-catalogue-sync.py` | **CI gate** — catalogue vs prompt vs enforced vocabulary |
 
@@ -87,6 +88,22 @@ so the framework views return nothing even when the corpus is full. Seed once pe
 ```bash
 curl -XPOST "https://<appliance>/api/v1/admin/reference/seed?username=<you>"
 ```
+
+## Filtering
+
+Filtering happens at the **URL, before ingestion**, and it is configuration rather than code:
+`apps/esg-population.json`, read by both the app and the script, editable per-run in the app.
+
+That is where it belongs on the evidence. A real run over six AXA pages produced 1,604 content
+elements while the crawl budget went on `/search`, `/careers` and a product selector. Chunking
+itself was fine — 395 chunks averaging 965 characters, none under 50 — so there is no fragment
+noise to filter. The waste is whole irrelevant **pages**, and a page never fetched costs no chunks,
+no embeddings and no extraction call.
+
+`excludePatterns` are regexes matched against the full URL. `includeHints` only **reorder** what
+survives, so the page budget is spent on the likeliest material first — they never exclude, because
+a sustainability statement can live on a page named anything. The producer's chunk budget
+(`collect.limit`) is set explicitly in `producers/esg.yml` rather than inherited from a default.
 
 ## Views
 

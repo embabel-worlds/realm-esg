@@ -86,6 +86,16 @@ https://www.ricoh.co.uk/</textarea>
       </div>
     </div>
 
+    <details style="margin-top:16px">
+      <summary style="cursor:pointer;font-weight:600;font-size:13px">URL exclusions</summary>
+      <p class="hint">Regular expressions matched against each crawled URL, case-insensitively. A page
+         dropped here is never fetched, so it costs no chunks, no embeddings and no extraction call.
+         Defaults ship in <code>esg-population.json</code>; edits here apply to this run only.</p>
+      <textarea id="excludes" spellcheck="false" style="min-height:104px"></textarea>
+    </details>
+    <div class="row" style="display:none">
+    </div>
+
     <button id="go" class="bigred">Populate</button>
 
     <div class="warn">
@@ -145,9 +155,35 @@ const say = (msg, cls) => {
 // The crawler ranks links by term overlap with this hint. The material we are after is largely
 // European: an English-only hint misses /duurzaamheid/, /nachhaltigkeit and /governance-code-cultuur/,
 // which is where most of the actual disclosure lives.
-const HINT = 'sustainability duurzaamheid nachhaltigkeit durabilite responsabilite sostenibilita '
-           + 'hallbarhet baeredygtighed baerekraft esg csr environment milieu umwelt climate klimaat '
-           + 'klima emissions governance bestuur responsibility report jaarverslag';
+// Population policy is CONFIGURATION, shipped beside this app and editable in the panel above.
+let POLICY = {crawlHint: '', excludePatterns: [], includeHints: [], maxPages: 10, delayMs: 1000, ttlDays: 180};
+async function loadPolicy() {
+  try {
+    POLICY = Object.assign(POLICY, await (await fetch('esg-population.json', {credentials: 'same-origin'})).json());
+  } catch (e) { /* defaults below still work */ }
+  document.getElementById('excludes').value = (POLICY.excludePatterns || []).join('\n');
+  if (POLICY.maxPages) document.getElementById('maxPages').value = POLICY.maxPages;
+  if (POLICY.delayMs != null) document.getElementById('delay').value = POLICY.delayMs;
+  if (POLICY.ttlDays != null) document.getElementById('ttl').value = POLICY.ttlDays;
+}
+
+// Filter at the URL, before ingestion. Measured on a real run: six AXA pages yielded 1,604 content
+// elements while the crawl budget went on /search, /careers and a product selector. Chunking itself
+// was fine — 395 chunks averaging 965 characters, none under 50 — so the waste is whole irrelevant
+// PAGES. A page never fetched costs nothing; a page fetched costs chunks, embeddings and a model call.
+function applyPolicy(pages) {
+  const raw = (document.getElementById('excludes').value || '').split('\n').map(x => x.trim()).filter(Boolean);
+  const res = raw.map(p => { try { return new RegExp(p, 'i'); } catch { return null; } }).filter(Boolean);
+  const kept = [], dropped = [];
+  for (const pg of pages) (res.some(r => r.test(pg.uri)) ? dropped : kept).push(pg);
+  // Rank what survives so the page budget is spent on the likeliest material first. Hints only
+  // REORDER — a sustainability statement can live on a page named anything, so nothing is excluded
+  // for failing to match one.
+  const hints = POLICY.includeHints || [];
+  kept.sort((a, b) => hints.filter(h => b.uri.toLowerCase().includes(h)).length
+                    - hints.filter(h => a.uri.toLowerCase().includes(h)).length);
+  return {kept, dropped};
+}
 
 // The crawl tool returns pages separated by a rule, each headed '# title' then its url.
 // The gateway wraps a successful tool result as {result: <value>}; older shapes used text/content.
@@ -263,7 +299,7 @@ document.getElementById('go').addEventListener('click', async () => {
     let pages = [], startUrl = null;
     for (const candidate of [`https://${t.domain}`, `https://www.${t.domain}`]) {
       try {
-        const got = parsePages(await tool('crawl', {url: candidate, hint: HINT, max_pages: maxPages}));
+        const got = parsePages(await tool('crawl', {url: candidate, hint: POLICY.crawlHint, max_pages: maxPages}));
         if (got.length) { pages = got; startUrl = candidate; break; }
         say(`  ${candidate} — crawled but no page carried a url`, 'dim');
       } catch (e) {
@@ -274,7 +310,11 @@ document.getElementById('go').addEventListener('click', async () => {
       say('  no crawlable entry point. Paste a working URL (or the sustainability report PDF) instead.', 'bad');
       continue;
     }
-    say(`  ${pages.length} page(s) from ${startUrl}`, 'dim');
+    const {kept, dropped} = applyPolicy(pages);
+    if (dropped.length) say(`  ${dropped.length} page(s) excluded by policy: ${dropped.map(d => new URL(d.uri).pathname).join(', ')}`, 'dim');
+    pages = kept;
+    if (!pages.length) { say('  every page was excluded — loosen the exclusions or point at a report URL', 'bad'); continue; }
+    say(`  ${pages.length} page(s) to ingest from ${startUrl}`, 'dim');
 
     let n = 0;
     for (const [j, p] of pages.entries()) {
@@ -311,12 +351,12 @@ document.getElementById('go').addEventListener('click', async () => {
         'extractor has no datapoints to look for.', 'bad');
   }
   say('Open the Scorecard for the values, their quotes, and any framework projection.', 'dim');
-  await refreshCoverage();
+  await loadPolicy().then(refreshCoverage);
   btn.disabled = false;
   btn.textContent = 'Populate';
 });
 
-refreshCoverage();
+loadPolicy().then(refreshCoverage);
 </script>
 </body>
 </html>

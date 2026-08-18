@@ -20,7 +20,7 @@ is skipped, so re-running after an interruption continues rather than restarts.
 
 Environment: EMBABEL_URL (default http://localhost:8042), EMBABEL_USER, EMBABEL_PASS.
 """
-import argparse, json, os, pathlib, sys, time, urllib.parse
+import argparse, json, os, pathlib, re, sys, time, urllib.parse
 import urllib.request
 
 BASE = os.environ.get("EMBABEL_URL", "http://localhost:8042").rstrip("/")
@@ -32,9 +32,25 @@ PASS = os.environ.get("EMBABEL_PASS", "")
 # real paths are /duurzaamheid/, /nachhaltigkeit, /governance-code-cultuur/. An English-only hint
 # finds under a tenth of the evidence, so the hint carries the terms in the languages the sites
 # are actually written in. This is why no semantic link scorer is needed for v1.
-HINT = ("sustainability duurzaamheid nachhaltigkeit durabilite responsabilite sostenibilita "
-        "hallbarhet baeredygtighed baerekraft zrownowazony esg csr environment milieu umwelt "
-        "climate klimaat klima emissions governance bestuur responsibility report jaarverslag")
+# Population policy is CONFIGURATION, shared with the Populate app. Filtering happens at the URL,
+# before ingestion: measured on a real run, six AXA pages produced 1,604 content elements while the
+# crawl budget went on /search, /careers and a product selector. Chunking itself was fine (395
+# chunks averaging 965 characters, none under 50) — the waste is whole irrelevant PAGES, and a page
+# never fetched costs no chunks, no embeddings and no model call.
+POLICY = json.loads((pathlib.Path(__file__).resolve().parent.parent / "apps/esg-population.json").read_text())
+HINT = POLICY["crawlHint"]
+EXCLUDES = [re.compile(p, re.I) for p in POLICY.get("excludePatterns", [])]
+HINTS = [h.lower() for h in POLICY.get("includeHints", [])]
+
+
+def apply_policy(pages: list) -> tuple:
+    """Drop excluded URLs, then rank what survives so the page budget goes on the likeliest
+    material first. Hints only REORDER — a sustainability statement can live on a page named
+    anything, so nothing is dropped merely for failing to match one."""
+    kept = [p for p in pages if not any(r.search(p["uri"]) for r in EXCLUDES)]
+    dropped = [p for p in pages if p not in kept]
+    kept.sort(key=lambda p: -sum(h in p["uri"].lower() for h in HINTS))
+    return kept, dropped
 
 
 def post(path: str, payload: dict, timeout: int = 180) -> dict:
@@ -117,6 +133,13 @@ def populate(target: str, max_pages: int, delay: float) -> dict:
             tried.append(f"{candidate}: {str(e)[:110] or 'unreachable'}")
     if not pages:
         return {"domain": domain, "status": "no_entry_point", "pages": 0, "detail": "; ".join(tried)}
+
+    pages, dropped = apply_policy(pages)
+    if dropped:
+        print(f"\n    {len(dropped)} page(s) excluded by policy", file=sys.stderr)
+    if not pages:
+        return {"domain": domain, "status": "all_pages_excluded", "pages": 0,
+                "detail": "every crawled page matched an exclusion — loosen them or pass a report URL"}
 
     ingested = 0
     for p in pages:

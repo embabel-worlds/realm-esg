@@ -1,0 +1,60 @@
+{
+  "_comment": [
+    "Population policy — edit this, not the code. Shipped with the realm, read by both the Populate",
+    "app (fetched beside it) and scripts/populate.py.",
+    "",
+    "Measured, not assumed: a real run over six AXA pages produced 1,604 content elements, and the",
+    "crawler had spent its budget on /search, /careers, /markets and a product selector. Chunking",
+    "itself is fine — 395 chunks averaged 965 characters with none under 50 — so the waste is whole",
+    "IRRELEVANT PAGES, not noisy fragments. Filtering therefore happens at the URL, before ingestion,",
+    "where it costs nothing; a page never fetched is chunks never embedded and tokens never spent.",
+    "",
+    "excludePatterns are matched case-insensitively against the full URL as regular expressions.",
+    "includeHints only REORDER candidates when more pages are found than the budget allows; they",
+    "never exclude, because a sustainability statement can live on a page named anything."
+  ],
+
+  "maxPages": 10,
+  "delayMs": 1000,
+  "ttlDays": 180,
+
+  "crawlHint": "sustainability duurzaamheid nachhaltigkeit durabilite responsabilite sostenibilita hallbarhet baeredygtighed baerekraft esg csr environment milieu umwelt climate klimaat klima emissions governance bestuur responsibility report jaarverslag",
+
+  "excludePatterns": [
+    "/search",
+    "/careers?(/|$)",
+    "/jobs?(/|$)",
+    "/vacanc",
+    "/contact",
+    "/login",
+    "/register",
+    "/basket",
+    "/cart",
+    "/checkout",
+    "/cookie",
+    "/privacy",
+    "/terms",
+    "/legal-notice",
+    "/disclaimer",
+    "/sitemap",
+    "/newsletter",
+    "/subscribe",
+    "/events?(/|$)",
+    "/webinar",
+    "/press-release",
+    "/media-kit",
+    "/products?(/|$)",
+    "productselector",
+    "/shop(/|$)",
+    "/store(/|$)",
+    "\\?.*(sort|filter|page|view)=",
+    "\\.(jpg|jpeg|png|gif|svg|webp|zip|xlsx?|pptx?|docx?)($|\\?)"
+  ],
+
+  "includeHints": [
+    "sustainab", "duurzaam", "nachhaltig", "durabilit", "sostenibil", "hallbarhet",
+    "baeredygtig", "baerekraft", "esg", "csr", "responsib", "verantwoord", "verantwortung",
+    "environment", "milieu", "umwelt", "climate", "klima", "emission", "carbon",
+    "governance", "impact", "annual-report", "jaarverslag", "geschaeftsbericht", "report"
+  ]
+}

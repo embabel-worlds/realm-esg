@@ -20,6 +20,11 @@
     anchorLabel: Document
     anchorKeyProperty: uri
     text: "{{ text }}"
+    # Explicit rather than inherited: the collect cap decides how much of a document the model
+    # actually sees, and an invisible default is the wrong place for that decision. A page of real
+    # disclosure runs to a few dozen chunks (measured: 965 characters each), so this is generous for
+    # a page and deliberately finite for a whole report.
+    limit: 300
   extract:
     # Typed discipline needs a stronger model than the vc_execution default: a cheap tier answers
     # "what were your Scope 2 emissions in metric tons" with "Yes", which is the exact defect this
