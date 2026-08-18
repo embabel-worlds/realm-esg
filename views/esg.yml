@@ -80,15 +80,28 @@
     // the not_disclosed of a window that simply did not contain the relevant text. Returned raw,
     // that makes a well-extracted company look mostly silent and wrecks any rate computed over
     // rows. Prefer a window that actually found something, and report how many did.
+    // Pick by AGREEMENT, not arrival order. A long report has many tables — prior-year columns,
+    // component sub-totals, restatements — so windows legitimately disagree, and taking the first
+    // is a coin toss that reads as an answer. Espersen's 384-chunk report produced Scope 1 of both
+    // 3,332 tCO2e (the total) and 184.2 tCO2e (company cars alone); first-wins reported neither
+    // reliably. The value the most windows independently found is the total far more often than
+    // not, and `candidateValues` says how much disagreement is hiding behind the number: anything
+    // above 1 deserves a human before it is quoted.
     WITH o.datapointId AS dpId, collect(o) AS obs
     WITH dpId, obs, [x IN obs WHERE x.value <> 'not_disclosed'] AS said
-    WITH dpId,
-         CASE WHEN size(said) > 0 THEN said[0] ELSE obs[0] END AS o,
+    UNWIND (CASE WHEN size(said) > 0 THEN said ELSE obs END) AS cand
+    WITH dpId, obs, said, cand.value AS v, collect(cand) AS sameValue
+    WITH dpId, obs, said, v, sameValue, size(sameValue) AS agreeing
+    ORDER BY agreeing DESC, v
+    WITH dpId, obs, said, collect({o: sameValue[0], v: v, agreeing: agreeing}) AS ranked
+    WITH dpId, ranked[0].o AS o,
          size(said) AS windowsDisclosing,
-         size(obs) AS windowsRead
+         size(obs) AS windowsRead,
+         ranked[0].agreeing AS windowsAgreeing,
+         size(ranked) AS candidateValues
     RETURN o.docUri AS document, dpId AS datapoint, o.value AS value,
            o.unit AS unit, o.period AS period, o.quote AS quote, o.sourceChunkId AS chunkId,
-           windowsDisclosing, windowsRead
+           windowsDisclosing, windowsRead, windowsAgreeing, candidateValues
     ORDER BY datapoint
 
 # ── One company, everything we read ──────────────────────────────────────────────────────────
@@ -111,17 +124,30 @@
     // the not_disclosed of a window that simply did not contain the relevant text. Returned raw,
     // that makes a well-extracted company look mostly silent and wrecks any rate computed over
     // rows. Prefer a window that actually found something, and report how many did.
+    // Pick by AGREEMENT, not arrival order. A long report has many tables — prior-year columns,
+    // component sub-totals, restatements — so windows legitimately disagree, and taking the first
+    // is a coin toss that reads as an answer. Espersen's 384-chunk report produced Scope 1 of both
+    // 3,332 tCO2e (the total) and 184.2 tCO2e (company cars alone); first-wins reported neither
+    // reliably. The value the most windows independently found is the total far more often than
+    // not, and `candidateValues` says how much disagreement is hiding behind the number: anything
+    // above 1 deserves a human before it is quoted.
     WITH o.datapointId AS dpId, collect(o) AS obs
     WITH dpId, obs, [x IN obs WHERE x.value <> 'not_disclosed'] AS said
-    WITH dpId,
-         CASE WHEN size(said) > 0 THEN said[0] ELSE obs[0] END AS o,
+    UNWIND (CASE WHEN size(said) > 0 THEN said ELSE obs END) AS cand
+    WITH dpId, obs, said, cand.value AS v, collect(cand) AS sameValue
+    WITH dpId, obs, said, v, sameValue, size(sameValue) AS agreeing
+    ORDER BY agreeing DESC, v
+    WITH dpId, obs, said, collect({o: sameValue[0], v: v, agreeing: agreeing}) AS ranked
+    WITH dpId, ranked[0].o AS o,
          size(said) AS windowsDisclosing,
-         size(obs) AS windowsRead
+         size(obs) AS windowsRead,
+         ranked[0].agreeing AS windowsAgreeing,
+         size(ranked) AS candidateValues
     OPTIONAL MATCH (dp:EsgDatapoint {id: dpId})
     RETURN coalesce(dp.name, dpId) AS datapoint, dp.answerType AS type, o.value AS value,
            o.unit AS unit, o.period AS period, o.confidence AS confidence, o.quote AS evidence,
            o.docUri AS sourceUrl, o.sourceChunkId AS chunkId,
-           windowsDisclosing, windowsRead
+           windowsDisclosing, windowsRead, windowsAgreeing, candidateValues
     ORDER BY datapoint
 
 # ── The same observations, in one framework's language ───────────────────────────────────────
@@ -314,12 +340,26 @@
       default: ghg_scope1
       description: "A quantitative datapoint id, e.g. 'ghg_scope1' or 'renewable_energy_share'."
   cypher: |
+    // A RANKING MUST NOT CARRY A CONTESTED FIGURE. A long report states the same quantity several
+    // ways — prior-year columns, component sub-totals, restatements — so windows disagree, and a
+    // view that silently picks one puts a coin toss into a league table. Espersen's report yielded
+    // Scope 1 as both 3,332 tCO2e (the total) and 184.2 tCO2e (company cars); ranking either as
+    // "Espersen's Scope 1" would be wrong, and ranking the smaller one flatters them.
+    //
+    // So this ranks only figures the extraction AGREED on, and returns the contested ones
+    // separately as `contested` so they are visible rather than dropped. A number nobody can
+    // settle is not a number to rank.
     MATCH (o:EsgObservation {datapointId: $datapointId})
     WHERE o.value <> 'not_disclosed' AND toFloat(o.value) IS NOT NULL
     WITH replace(split(replace(replace(o.docUri, 'https://', ''), 'http://', ''), '/')[0], 'www.', '') AS company,
-         toFloat(o.value) AS figure, o.unit AS unit, o.period AS period, o.quote AS evidence
-    RETURN company, figure, unit, period, evidence
-    ORDER BY figure DESC
+         o.value AS v, o.unit AS unit, o.period AS period, o.quote AS evidence
+    WITH company, collect(DISTINCT v) AS values, collect({v: v, unit: unit, period: period, evidence: evidence}) AS all
+    RETURN company,
+           CASE WHEN size(values) = 1 THEN toFloat(values[0]) ELSE null END AS figure,
+           all[0].unit AS unit, all[0].period AS period, all[0].evidence AS evidence,
+           size(values) AS candidateValues,
+           size(values) > 1 AS contested
+    ORDER BY contested, figure DESC
 
 - name: EsgConfidence
   description: >-
