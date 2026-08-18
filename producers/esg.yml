@@ -82,8 +82,9 @@
         - "quote": the VERBATIM sentence supporting the answer — never a paraphrase, never
           assembled from separate places. Omit ONLY when value is "not_disclosed".
         - "confidence": "direct" when the quote states the answer outright; "inferred" when you
-          read it from surrounding context. If you would need to assume anything, prefer
-          "not_disclosed" over "inferred".
+          read it from surrounding context; "not_disclosed" when the value is "not_disclosed"
+          (there is no quote to support, so neither of the others applies). If you would need to
+          assume anything, prefer a "not_disclosed" value over an "inferred" one.
         - "sourceIndex": the excerpt number the quote came from.
 
       RULES, in order of importance:

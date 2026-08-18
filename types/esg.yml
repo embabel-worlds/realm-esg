@@ -128,8 +128,15 @@
     period: "Reporting period the figure covers, as published."
     quote: "The verbatim sentence the answer was read from. Never a paraphrase."
     confidence:
-      description: "How directly the quote supports the value."
+      description: >-
+        How directly the quote supports the value: `direct` when the quote states it outright,
+        `inferred` when it was read from surrounding context, `not_disclosed` when there is nothing
+        to support because the material is silent.
+      # `not_disclosed` is here because the model reaches for it, and it is RIGHT to: a silent
+      # datapoint has no quote, so neither direct nor inferred can be true of it. Omitting it cost
+      # 11 of every 13 extracted records — the backend dropped them for violating this rule, and a
+      # working extraction rendered as an empty page.
       validation:
         - rule: oneOf
-          values: [ direct, inferred ]
+          values: [ direct, inferred, not_disclosed ]
     sourceChunkId: "Provenance — the chunk the quote came from, so the citation can be checked."

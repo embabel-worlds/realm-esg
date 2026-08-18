@@ -9,7 +9,7 @@ description: >
   (o:EsgObservation)-[:OF_DATAPOINT]->(d:EsgDatapoint)-[:SATISFIES]->(r:EsgRequirement)-[:IN_FRAMEWORK]->(f:EsgFramework).
   Every observation carries the chunk it came from, so a citation can be CHECKED rather than
   asserted. Absence of evidence is recorded as absence, never as assent.
-version: 0.4.0
+version: 0.4.1
 author: Embabel
 url: https://github.com/embabel/realm-esg
 tags:
