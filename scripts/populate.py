@@ -89,14 +89,34 @@ def pages_of(envelope) -> list:
     return out
 
 
-def populate(domain: str, max_pages: int, delay: float) -> dict:
-    start = domain if domain.startswith("http") else f"https://{domain}"
-    try:
-        pages = pages_of(call("crawl", {"url": start, "hint": HINT, "max_pages": max_pages}))
-    except Exception as e:                                    # a dead site is data, not a crash
-        return {"domain": domain, "status": "crawl_failed", "detail": str(e)[:200], "pages": 0}
+def populate(target: str, max_pages: int, delay: float) -> dict:
+    """A full URL is ingested as given — sustainability reporting is very often a PDF, and the
+    ingestion endpoint fetches and converts server-side, so pointing at the report beats fighting a
+    homepage for it. A bare domain is crawled, trying the apex AND www: an apex that refuses
+    connections while www serves fine is common (ricoh.co.uk does exactly this)."""
+    is_url = target.startswith("http") or "/" in target
+    url = target if target.startswith("http") else f"https://{target}"
+    domain = re.sub(r"^www\.", "", url.split("//", 1)[1].split("/")[0])
+
+    if is_url:
+        try:
+            ingest_url(url, domain)
+            return {"domain": domain, "status": "ok", "pages": 1, "ingested": 1}
+        except Exception as e:
+            return {"domain": domain, "status": "ingest_failed", "detail": str(e)[:200], "pages": 0}
+
+    pages, tried = [], []
+    for candidate in (f"https://{domain}", f"https://www.{domain}"):
+        try:
+            got = pages_of(call("crawl", {"url": candidate, "hint": HINT, "max_pages": max_pages}))
+            if got:
+                pages = got
+                break
+            tried.append(f"{candidate}: crawled, no page carried a url")
+        except Exception as e:                                # a dead site is data, not a crash
+            tried.append(f"{candidate}: {str(e)[:110] or 'unreachable'}")
     if not pages:
-        return {"domain": domain, "status": "no_pages", "pages": 0}
+        return {"domain": domain, "status": "no_entry_point", "pages": 0, "detail": "; ".join(tried)}
 
     ingested = 0
     for p in pages:
@@ -139,9 +159,14 @@ def main() -> int:
     print("  MATCH (d:Document) WHERE d.publishedByDomain IN $domains")
     print("  MATCH (d)-[:HAS_OBSERVATIONS]->(o:EsgObservation)")
     print("  RETURN d.publishedByDomain AS domain, o.datapointId, o.value, o.unit, o.quote")
-    failed = [r["domain"] for r in results if r["status"] != "ok"]
+    failed = [r for r in results if r["status"] != "ok"]
     if failed:
-        print(f"\nnot populated ({len(failed)}): {', '.join(failed)}")
+        print(f"\nnot populated ({len(failed)}):")
+        for r in failed:
+            print(f"  {r['domain']}: {r['status']} — {r.get('detail', '')[:160]}")
+        print("\nA site resisting a crawl is normal: corporate homepages geo-redirect, require JS,")
+        print("and block non-browser clients. Paste a working URL — ideally the sustainability")
+        print("report PDF — and it is ingested directly, converted server-side.")
     return 0
 
 

@@ -58,14 +58,18 @@
      extractor read typed, cited observations from it.</p>
 
   <div class="card">
-    <label for="domains">Domains — one per line</label>
+    <label for="domains">Domains or URLs — one per line</label>
     <textarea id="domains" spellcheck="false">schott.com
 ferrero.com
 skf.com
 ricoh.co.uk
-axa.com</textarea>
-    <p class="hint">Bare domains. Each is crawled from its homepage, following links that look like
-       sustainability material in any of the languages these sites are written in.</p>
+axa.com
+https://www.ricoh.co.uk/</textarea>
+    <p class="hint">A bare domain is crawled from its homepage (apex then <code>www.</code>), following
+       links that look like sustainability material in any of the languages these sites are written in.
+       A full URL is ingested directly — <strong>including a PDF</strong>, which is usually where the real
+       reporting is. Corporate homepages geo-redirect, require JS and block non-browser clients; when one
+       resists, paste its sustainability report URL instead.</p>
 
     <div class="row">
       <div>
@@ -175,10 +179,15 @@ async function refreshCoverage() {
 
 document.getElementById('go').addEventListener('click', async () => {
   const btn = document.getElementById('go');
-  const domains = document.getElementById('domains').value.split('\n')
-    .map(s => s.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, ''))
-    .filter(s => s && !s.startsWith('#'));
-  if (!domains.length) return say('nothing to do — add at least one domain', 'bad');
+  const targets = document.getElementById('domains').value.split('\n')
+    .map(s => s.trim()).filter(s => s && !s.startsWith('#'))
+    .map(raw => {
+      const isUrl = /^https?:\/\//i.test(raw) || raw.includes('/');
+      const url = /^https?:\/\//i.test(raw) ? raw : 'https://' + raw;
+      const domain = url.replace(/^https?:\/\//i, '').replace(/^www\./i, '').split('/')[0];
+      return {raw, domain, url, isUrl, isPdf: /\.pdf(\?|$)/i.test(raw)};
+    });
+  if (!targets.length) return say('nothing to do — add at least one domain or URL', 'bad');
 
   const maxPages = Math.max(1, +document.getElementById('maxPages').value || 10);
   const delay = Math.max(0, +document.getElementById('delay').value || 0);
@@ -187,22 +196,47 @@ document.getElementById('go').addEventListener('click', async () => {
   btn.disabled = true;
   btn.textContent = 'Populating…';
   logEl.textContent = '';
-  say(`populating ${domains.length} domain(s), up to ${maxPages} pages each`, 'dim');
+  say(`populating ${targets.length} target(s), up to ${maxPages} pages each`, 'dim');
 
   let totalDocs = 0;
-  for (const [i, domain] of domains.entries()) {
-    say(`\n[${i + 1}/${domains.length}] ${domain}`);
-    let pages;
-    try {
-      pages = parsePages(await tool('crawl', {url: `https://${domain}`, hint: HINT, max_pages: maxPages}));
-    } catch (e) { say(`  crawl failed: ${e.message}`, 'bad'); continue; }
-    if (!pages.length) { say('  crawl returned no page with a url — site unreachable or blocked', 'bad'); continue; }
-    say(`  ${pages.length} page(s) fetched`, 'dim');
+  for (const [i, t] of targets.entries()) {
+    say(`\n[${i + 1}/${targets.length}] ${t.raw}`);
+
+    // A URL is a deliberate pointer — ingest it as given. Sustainability reporting is very often a
+    // PDF, and the ingestion endpoint fetches and converts it server-side, so there is nothing to
+    // crawl: pointing straight at the report beats fighting a homepage for it.
+    if (t.isUrl) {
+      try {
+        await ingestUrl(t.url, t.domain);
+        totalDocs++;
+        say(`  ingested directly${t.isPdf ? ' (pdf)' : ''}`, 'ok');
+      } catch (e) { say(`  ingest failed: ${e.message}`, 'bad'); }
+      if (delay) await pause(delay);
+      continue;
+    }
+
+    // A bare domain: the apex often is not the site. ricoh.co.uk refuses connections outright while
+    // www.ricoh.co.uk serves fine, so try both before calling it unreachable.
+    let pages = [], startUrl = null;
+    for (const candidate of [`https://${t.domain}`, `https://www.${t.domain}`]) {
+      try {
+        const got = parsePages(await tool('crawl', {url: candidate, hint: HINT, max_pages: maxPages}));
+        if (got.length) { pages = got; startUrl = candidate; break; }
+        say(`  ${candidate} — crawled but no page carried a url`, 'dim');
+      } catch (e) {
+        say(`  ${candidate} — ${e.message || 'unreachable'}`, 'dim');
+      }
+    }
+    if (!pages.length) {
+      say('  no crawlable entry point. Paste a working URL (or the sustainability report PDF) instead.', 'bad');
+      continue;
+    }
+    say(`  ${pages.length} page(s) from ${startUrl}`, 'dim');
 
     let n = 0;
     for (const p of pages) {
       try {
-        await ingestUrl(p.uri, domain);
+        await ingestUrl(p.uri, t.domain);
         n++; totalDocs++;
       } catch (e) { say(`  ingest failed ${p.uri}: ${e.message}`, 'bad'); }
       if (delay) await pause(delay);                  // politeness, per host
