@@ -3,15 +3,15 @@
 Three companies, **the baseline's own cited URLs** as input, so the evidence is identical and any
 difference is extraction quality alone.
 
-## v0.7.1 — after the combined-scope fix
+## v0.8.1 — after the combined-scope fix, the graph cache, and per-window reduction
 
-107 baseline rows against 112 observations.
+107 baseline rows against 42 datapoint answers (14 each for three companies).
 
 | | baseline | realm-esg |
 |---|---|---|
 | quantitative/open questions answered with a figure | **0 of 14** | **6 of 6** |
-| answers that are a negative / not-disclosed | 0.9% | 79.5% |
-| answered rows carrying evidence | 90.7% | 73.9% |
+| answers that are a negative / not-disclosed | 0.9% | 69.0% |
+| answered rows carrying evidence | 90.7% | **92.3%** |
 | same number reported under two datapoints | n/a | **0** |
 
 ## The difference, in their own rows
@@ -51,11 +51,24 @@ a scope, and rule 6 now says so with this exact sentence as its worked example, 
 prefers the local reading. The number is no longer double-counted; whether it belongs to Scope 2 or
 to the combined figure remains arguable, and the quote lets a reader decide.
 
-## Two open defects
+## The "accumulating observations" were two different bugs, neither of them accumulation
+
+**The producer had no cache declaration.** Its header comment claimed graph caching from the first
+commit — copied from `realm-legal`, which declares `cache: { kind: graph }`; the line itself never
+was. So the producer was transient: every traversal re-ran the model at full cost and
+`MATCH (o:EsgObservation)` in raw Neo4j returned **zero** however many observations a view had just
+displayed. Declared now — first call 13.8s, repeats 0.1s, 14 rows persisted and stable.
+
+**Long documents are extracted in windows, and every window answers every datapoint.** AXA's
+280-chunk page makes five windows, so it holds 5 × 14 = 70 rows, most of them the `not_disclosed`
+of a window that did not contain the relevant text. Returned raw, a well-disclosed company looks
+mostly silent and every rate over rows is wrong — that alone was the 73.9% evidence figure, not any
+regression in extraction. `EsgProfile` and `EsgExtract` now return one row per datapoint, preferring
+a window that found something, and report `windowsDisclosing/windowsRead` so a `3/7` is visible.
+AXA: 98 rows → 14.
+
+## Open defect
 
 - **`EsgExtract` anchoring is unreliable for AXA.** `WHERE d.uri CONTAINS $domain` materializes for
-  schott.com and ricoh.co.uk but returns 0 for axa.com; an exact-URI anchor works. Not understood.
-- **Observations accumulate across runs.** AXA holds 84 observations over 2 documents where ~28 are
-  expected: re-extraction appends rather than replaces, which also drags the evidence rate down from
-  88.2% to 73.9% as quote-less duplicates pile up. The count of *distinct* findings is unaffected,
-  but any rate computed over rows is now wrong.
+  schott.com and ricoh.co.uk but returned 0 for axa.com; an exact-URI anchor works. Not understood,
+  and worth understanding — it is the difference between a company being read and silently skipped.
