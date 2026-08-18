@@ -67,3 +67,57 @@ not 272 companies and 97 metrics.
 
 **Three fixes owed:** enforce rule 5 (no quote, no answer); correct the sourceIndex→chunk mapping;
 make a target-shaped ambition without figures register as a target.
+
+
+---
+
+# Audit at 1.1.0 — all three companies
+
+Re-extracted cold after the fixes, then audited with `scripts/audit.py`.
+
+| | schott + ricoh | axa |
+|---|---|---|
+| disclosed answers | 8 | 5 |
+| silent answers | 20 | 9 |
+| **confirmed defects** | **0** | **0** |
+| recall candidates for a human | 9 | 4 |
+
+Every earlier defect is closed: no answer lacks a quote, no quote is fabricated, and none is cited
+to a chunk that does not contain it.
+
+## The defect the mechanical audit could not catch
+
+AXA passed every string check at 1.0.1 and was still wrong. `board_gender_diversity` returned
+**41%**, quoting:
+
+> *"gender parity amongst our senior executives population (called the Global Leadership Network
+> (GLN) and gathering approximately 250 members). We are proud to have progressed to (41%)"*
+
+Real quote, correctly attributed, correct number — **for a 250-person leadership network, when the
+datapoint asks about the board**. A right number about the wrong population, which reads exactly
+like a right answer.
+
+Two things caught it, and both are design rather than luck: the answer was found by **1 window of
+9**, and the audit prints candidates for a person rather than scoring them. String matching would
+have passed it forever.
+
+Fixed in 1.1.0 — the datapoint now names the near-misses (senior executives, leadership network,
+management, workforce) and prompt rule 8 generalizes it. Verified on the page that produced it: all
+six windows now return `not_disclosed`, and AXA drops from 6 disclosed answers to 5.
+
+## Standing recall candidates, all judged correct
+
+`board` matching SCHOTT's "Job Board" nav; `women` matching AXA's "Women in Insurance" menu item;
+`water` in *"monitor carbon emissions, energy, water and paper consumption"* with no figure; and
+repeatedly **a target read as a target rather than a measurement** — AXA's *"60% reduction in Scope
+1 and 2"* correctly leaves Scope 1 undisclosed while being captured under `ghg_reduction_target`.
+
+One is worth a human eye each run: SCHOTT states *"We calculate our Scope 1 and 2 emissions using
+both the market-based and location-based methods and disclose both"*, and `ghg_scope2_market` is
+`not_disclosed`. If the figures are on the page we are missing one.
+
+## What remains unproven
+
+Numbers are verified against the sentence they were drawn from, not against the companies' own
+reporting. Three companies, 14 datapoints, 42 answers. All 33 framework codes remain
+`verified: false`.
