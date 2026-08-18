@@ -216,10 +216,13 @@
     staleAfter: 365d
     requiresPeriod: true
     question: >-
-      Does the published material report total water withdrawn or consumed? Give the figure,
-      unit and period as published, and note whether it says withdrawal or consumption — they
-      are different quantities and must not be conflated. If none is stated, answer
-      not_disclosed.
+      Does the published material report the total volume of water withdrawn or consumed? Give the
+      figure, unit and period as published, and note whether it says withdrawal or consumption —
+      they are different quantities and must not be conflated.
+      A CHANGE IS NOT A LEVEL. "19.8% absolute reduction in water withdrawal" states how much the
+      figure MOVED, not what it IS, and a percentage is not a volume — answer not_disclosed. Only a
+      figure in a volume unit (m3, megalitres, cubic metres) answers this. If no volume is stated,
+      answer not_disclosed.
   relations:
     - { predicate: SATISFIES, to: { type: EsgRequirement, id: esrs-e3-4 } }
     - { predicate: SATISFIES, to: { type: EsgRequirement, id: gri-303-3 } }
