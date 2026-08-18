@@ -69,6 +69,8 @@
 
       Return a JSON array. For each datapoint you can answer, one object with exactly:
         - "datapointId": the id above, copied VERBATIM. Never invent an id.
+        - "name": a short label, the datapoint followed by the answer — "Scope 1 GHG emissions:
+          12,400 tCO2e", or "Scope 1 GHG emissions: not disclosed". Never a sentence.
         - "value": the answer, in the form the datapoint demands:
             * quantity  -> the NUMBER as published, digits only (e.g. "12400", "43.7").
                            NEVER "Yes". NEVER a converted or derived figure. If the text gives a

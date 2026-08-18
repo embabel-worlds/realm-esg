@@ -109,6 +109,11 @@
     id:
       description: "Synthesized identity — producer:owner:documentUri:hash:index. Stable while the document is unchanged."
       metadata: { identity: "true" }
+    name:
+      description: >-
+        Short display label — the datapoint and its value, e.g. "Scope 1 GHG emissions: 12,400
+        tCO2e". Observations are first-class entities; without a name they persist but render
+        nameless everywhere they surface.
     docUri: "URI of the document this was read from (= the anchor's uri)."
     datapointId:
       description: "The EsgDatapoint this answers. Join to (dp:EsgDatapoint {id: o.datapointId}) to reach its framework requirements."
@@ -147,7 +152,9 @@
       # violating this is DROPPED by the extract backend rather than stored unsupported.
       validation:
         - rule: regex
-          pattern: "^(NONE|.{25,})$"
+          # [\s\S] not `.` — a dot does NOT match a newline, so a perfectly good quote
+          # spanning two lines failed this and was dropped. Two of fourteen on the first run.
+          pattern: "^(NONE|[\\s\\S]{25,})$"
     confidence:
       description: >-
         How directly the quote supports the value: `direct` when the quote states it outright,
