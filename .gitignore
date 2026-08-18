@@ -1,0 +1,11 @@
+# Third-party comparison data is NEVER committed — it is read from a local path by
+# scripts/build-vendor-baseline.py and only our derived catalogue is versioned.
+*.tsv
+*.csv
+!docs/**/*.csv
+.venv/
+__pycache__/
+*.pyc
+out/
+*.iml
+.idea/

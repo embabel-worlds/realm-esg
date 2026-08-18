@@ -1,0 +1,132 @@
+# Framework REQUIREMENTS — the individual disclosure asks each framework makes. A requirement is
+# the thing a consumer wants answered IN ITS OWN LANGUAGE; an EsgDatapoint is the thing we
+# actually observe. The mapping between them lives on the datapoint (reference/datapoints.yml).
+#
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# EVERY `code` HERE IS PROVISIONAL — `verified: false` on all of them.
+# The whole premise of this realm is that a citation can be CHECKED. Shipping framework codes we
+# have not read off the published standard would be the same defect we are attacking. Before any
+# of this is shown to anyone, each code must be verified against its source standard and flipped
+# to `verified: true` with the clause it was read from.
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+#
+# Coverage is a deliberate SLICE — climate, energy, water, safety, diversity, governance — chosen
+# because it is where these frameworks genuinely overlap, which is what makes a shared
+# observation layer worth proving. ESRS alone runs to ~1,100 datapoints; we cover a dozen.
+
+# ── GHG Protocol ─────────────────────────────────────────────────────────────────────────────
+- type: EsgRequirement
+  data: { id: ghgp-scope1, code: "Scope 1", verified: false, title: "Direct GHG emissions from owned or controlled sources", unit: tCO2e }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: ghg-protocol } }]
+- type: EsgRequirement
+  data: { id: ghgp-scope2-location, code: "Scope 2 (location-based)", verified: false, title: "Indirect emissions from purchased energy, grid-average factors", unit: tCO2e }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: ghg-protocol } }]
+- type: EsgRequirement
+  data: { id: ghgp-scope2-market, code: "Scope 2 (market-based)", verified: false, title: "Indirect emissions from purchased energy, contractual instruments", unit: tCO2e }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: ghg-protocol } }]
+- type: EsgRequirement
+  data: { id: ghgp-scope3, code: "Scope 3", verified: false, title: "Other indirect value-chain emissions", unit: tCO2e }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: ghg-protocol } }]
+
+# ── ESRS (CSRD) ──────────────────────────────────────────────────────────────────────────────
+- type: EsgRequirement
+  data: { id: esrs-e1-1, code: "E1-1", verified: false, title: "Transition plan for climate change mitigation" }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: esrs } }]
+- type: EsgRequirement
+  data: { id: esrs-e1-4, code: "E1-4", verified: false, title: "Targets related to climate change mitigation and adaptation" }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: esrs } }]
+- type: EsgRequirement
+  data: { id: esrs-e1-5, code: "E1-5", verified: false, title: "Energy consumption and mix", unit: MWh }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: esrs } }]
+- type: EsgRequirement
+  data: { id: esrs-e1-6, code: "E1-6", verified: false, title: "Gross Scopes 1, 2, 3 and total GHG emissions", unit: tCO2e }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: esrs } }]
+- type: EsgRequirement
+  data: { id: esrs-e3-4, code: "E3-4", verified: false, title: "Water consumption", unit: m3 }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: esrs } }]
+- type: EsgRequirement
+  data: { id: esrs-s1-9, code: "S1-9", verified: false, title: "Diversity metrics" }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: esrs } }]
+- type: EsgRequirement
+  data: { id: esrs-s1-14, code: "S1-14", verified: false, title: "Health and safety metrics" }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: esrs } }]
+- type: EsgRequirement
+  data: { id: esrs-gov-1, code: "GOV-1", verified: false, title: "Role of the administrative, management and supervisory bodies" }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: esrs } }]
+- type: EsgRequirement
+  data: { id: esrs-g1-1, code: "G1-1", verified: false, title: "Business conduct policies and corporate culture" }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: esrs } }]
+
+# ── GRI ──────────────────────────────────────────────────────────────────────────────────────
+- type: EsgRequirement
+  data: { id: gri-2-12, code: "2-12", verified: false, title: "Role of the highest governance body in overseeing the management of impacts" }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: gri } }]
+- type: EsgRequirement
+  data: { id: gri-302-1, code: "302-1", verified: false, title: "Energy consumption within the organization", unit: MWh }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: gri } }]
+- type: EsgRequirement
+  data: { id: gri-303-3, code: "303-3", verified: false, title: "Water withdrawal", unit: m3 }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: gri } }]
+- type: EsgRequirement
+  data: { id: gri-305-1, code: "305-1", verified: false, title: "Direct (Scope 1) GHG emissions", unit: tCO2e }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: gri } }]
+- type: EsgRequirement
+  data: { id: gri-305-2, code: "305-2", verified: false, title: "Energy indirect (Scope 2) GHG emissions", unit: tCO2e }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: gri } }]
+- type: EsgRequirement
+  data: { id: gri-305-3, code: "305-3", verified: false, title: "Other indirect (Scope 3) GHG emissions", unit: tCO2e }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: gri } }]
+- type: EsgRequirement
+  data: { id: gri-305-5, code: "305-5", verified: false, title: "Reduction of GHG emissions", unit: tCO2e }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: gri } }]
+- type: EsgRequirement
+  data: { id: gri-403-9, code: "403-9", verified: false, title: "Work-related injuries" }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: gri } }]
+- type: EsgRequirement
+  data: { id: gri-405-1, code: "405-1", verified: false, title: "Diversity of governance bodies and employees" }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: gri } }]
+
+# ── ISSB (IFRS S1/S2) ────────────────────────────────────────────────────────────────────────
+- type: EsgRequirement
+  data: { id: issb-s1-governance, code: "S1 Governance", verified: false, title: "Governance processes, controls and procedures used to monitor sustainability-related risks and opportunities" }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: issb } }]
+- type: EsgRequirement
+  data: { id: issb-s2-transition-plan, code: "S2 Strategy", verified: false, title: "Climate-related transition plan" }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: issb } }]
+- type: EsgRequirement
+  data: { id: issb-s2-ghg, code: "S2 Metrics", verified: false, title: "Gross Scopes 1, 2 and 3 greenhouse gas emissions", unit: tCO2e }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: issb } }]
+- type: EsgRequirement
+  data: { id: issb-s2-targets, code: "S2 Targets", verified: false, title: "Climate-related targets" }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: issb } }]
+
+# ── SASB ─────────────────────────────────────────────────────────────────────────────────────
+# SASB metric codes are INDUSTRY-SPECIFIC (e.g. `EM-MM-110a.1`). These are topic-level stand-ins:
+# a concrete code can only be resolved once the subject's industry is known, which is why
+# industry here is a REGISTRY-sourced observation and never scraped from a website.
+- type: EsgRequirement
+  data: { id: sasb-ghg-emissions, code: "GHG Emissions (topic)", verified: false, industrySpecific: true, title: "Gross global Scope 1 emissions", unit: tCO2e }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: sasb } }]
+- type: EsgRequirement
+  data: { id: sasb-energy-management, code: "Energy Management (topic)", verified: false, industrySpecific: true, title: "Total energy consumed, percentage grid electricity, percentage renewable", unit: MWh }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: sasb } }]
+- type: EsgRequirement
+  data: { id: sasb-water-management, code: "Water Management (topic)", verified: false, industrySpecific: true, title: "Total water withdrawn and consumed", unit: m3 }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: sasb } }]
+- type: EsgRequirement
+  data: { id: sasb-employee-health-safety, code: "Employee Health & Safety (topic)", verified: false, industrySpecific: true, title: "Injury and fatality rates" }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: sasb } }]
+
+# ── IRIS+ ────────────────────────────────────────────────────────────────────────────────────
+# IRIS+ metric IDs (the `OI`/`PI`/`OD` series) are NOT reproduced here because we have not read
+# them off the catalogue. These are placeholders carrying the topic only; the real IDs are a
+# verification task, not a guess.
+- type: EsgRequirement
+  data: { id: iris-ghg-emissions, code: "TBD", verified: false, title: "Greenhouse gas emissions (IRIS+ metric id to be resolved)", unit: tCO2e }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: iris-plus } }]
+- type: EsgRequirement
+  data: { id: iris-energy-consumption, code: "TBD", verified: false, title: "Energy consumed (IRIS+ metric id to be resolved)", unit: MWh }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: iris-plus } }]
+- type: EsgRequirement
+  data: { id: iris-water-use, code: "TBD", verified: false, title: "Water use (IRIS+ metric id to be resolved)", unit: m3 }
+  relations: [{ predicate: IN_FRAMEWORK, to: { type: EsgFramework, id: iris-plus } }]

@@ -1,0 +1,270 @@
+# The ATOMS. A datapoint is one thing we observe in an organization's published material,
+# defined WITHOUT reference to any framework — then mapped, via SATISFIES, to every framework
+# requirement it answers. `Scope 1 = 12,400 tCO2e (FY2024)` is captured once and cited once;
+# GHG Protocol, ESRS E1-6, GRI 305-1, ISSB S2 and SASB all read the same observation.
+#
+# THE FIELD THAT MATTERS IS `answerType`.
+# The baseline this realm is measured against asks "What were your Scope 2 emissions in metric
+# tons?" and records the answer as `Yes`; it does that for 23 of its 27 quantitative and
+# narrative questions (docs/BASELINE_DEFECTS.md). A typed datapoint cannot do that: a `quantity`
+# yields a number and a unit or it yields `not_disclosed`, and the extractor is told so.
+#
+#   boolean   — the material states it, or it does not. `not_disclosed` is a REAL answer.
+#   quantity  — a number plus a unit plus the period it covers. Never a yes.
+#   enum      — one of a closed set, enforced by `validation: oneOf` on the producer.
+#   narrative — what the material actually SAYS, quoted. Never a yes.
+#
+# `sourceClass` decides where an answer may legitimately come from, and therefore what silence
+# MEANS. For `self-disclosure`, the published material is the definitional source and absence IS
+# the answer ("they do not disclose this"). For `registry`, the website is a bad source and
+# absence means nothing — the baseline inferred country of registration from the TLD in 91% of
+# cases, which is why nothing of that class is scraped here.
+
+# ── Climate: emissions ───────────────────────────────────────────────────────────────────────
+- type: EsgDatapoint
+  data:
+    id: ghg_scope1
+    name: Scope 1 GHG emissions
+    answerType: quantity
+    unit: tCO2e
+    sourceClass: self-disclosure
+    staleAfter: 365d
+    requiresPeriod: true
+    question: >-
+      Does the published material report the organization's Scope 1 (direct) greenhouse gas
+      emissions? If so, give the figure exactly as published, its unit, and the reporting period
+      it covers. If the material does not state a Scope 1 figure, answer not_disclosed — do not
+      infer one from any other number.
+  relations:
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: ghgp-scope1 } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: esrs-e1-6 } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: gri-305-1 } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: issb-s2-ghg } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: sasb-ghg-emissions } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: iris-ghg-emissions } }
+
+- type: EsgDatapoint
+  data:
+    id: ghg_scope2_location
+    name: Scope 2 GHG emissions (location-based)
+    answerType: quantity
+    unit: tCO2e
+    sourceClass: self-disclosure
+    staleAfter: 365d
+    requiresPeriod: true
+    question: >-
+      Does the published material report location-based Scope 2 (purchased energy) greenhouse
+      gas emissions? Give the figure, unit and period exactly as published. If the material
+      reports Scope 2 without saying whether it is location- or market-based, record it here and
+      note the ambiguity in the quote. If no Scope 2 figure is stated, answer not_disclosed.
+  relations:
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: ghgp-scope2-location } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: esrs-e1-6 } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: gri-305-2 } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: issb-s2-ghg } }
+
+- type: EsgDatapoint
+  data:
+    id: ghg_scope2_market
+    name: Scope 2 GHG emissions (market-based)
+    answerType: quantity
+    unit: tCO2e
+    sourceClass: self-disclosure
+    staleAfter: 365d
+    requiresPeriod: true
+    question: >-
+      Does the published material report market-based Scope 2 greenhouse gas emissions —
+      i.e. reflecting contractual instruments such as renewable energy certificates or PPAs?
+      Give the figure, unit and period as published, or not_disclosed.
+  relations:
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: ghgp-scope2-market } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: esrs-e1-6 } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: gri-305-2 } }
+
+- type: EsgDatapoint
+  data:
+    id: ghg_scope3
+    name: Scope 3 GHG emissions
+    answerType: quantity
+    unit: tCO2e
+    sourceClass: self-disclosure
+    staleAfter: 365d
+    requiresPeriod: true
+    question: >-
+      Does the published material report Scope 3 (value chain) greenhouse gas emissions? Give
+      the total figure, unit and period as published, and note which categories it says are
+      included. A partial Scope 3 covering only some categories is still a reported figure —
+      record it and say so in the quote. If none is stated, answer not_disclosed.
+  relations:
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: ghgp-scope3 } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: esrs-e1-6 } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: gri-305-3 } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: issb-s2-ghg } }
+
+# ── Climate: targets and plans ───────────────────────────────────────────────────────────────
+- type: EsgDatapoint
+  data:
+    id: ghg_reduction_target
+    name: GHG emissions reduction target
+    answerType: narrative
+    sourceClass: self-disclosure
+    staleAfter: 365d
+    question: >-
+      Does the published material state a greenhouse gas reduction target? If so, quote it —
+      including the percentage or absolute reduction, the baseline year, and the target year.
+      A stated ambition without a figure or date is still a target: quote it as published rather
+      than converting it into one. If no target is stated, answer not_disclosed.
+  relations:
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: esrs-e1-4 } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: gri-305-5 } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: issb-s2-targets } }
+
+- type: EsgDatapoint
+  data:
+    id: climate_transition_plan
+    name: Climate transition plan
+    answerType: narrative
+    sourceClass: self-disclosure
+    staleAfter: 365d
+    question: >-
+      Does the published material describe a plan for reducing the organization's climate
+      impact — actions taken or committed to, with what they are expected to achieve? Quote what
+      it actually says. This is the datapoint the baseline answers with the word "Yes" 79 times;
+      a bare affirmation is NOT an answer here. If the material describes no such plan, answer
+      not_disclosed.
+  relations:
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: esrs-e1-1 } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: issb-s2-transition-plan } }
+
+# ── Energy ───────────────────────────────────────────────────────────────────────────────────
+- type: EsgDatapoint
+  data:
+    id: energy_consumption_total
+    name: Total energy consumption
+    answerType: quantity
+    unit: MWh
+    sourceClass: self-disclosure
+    staleAfter: 365d
+    requiresPeriod: true
+    question: >-
+      Does the published material report total energy consumption? Give the figure and its unit
+      exactly as published — do NOT convert between units — plus the period. If none is stated,
+      answer not_disclosed.
+  relations:
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: esrs-e1-5 } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: gri-302-1 } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: sasb-energy-management } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: iris-energy-consumption } }
+
+- type: EsgDatapoint
+  data:
+    id: renewable_energy_share
+    name: Renewable share of energy consumed
+    answerType: quantity
+    unit: percent
+    sourceClass: self-disclosure
+    staleAfter: 365d
+    requiresPeriod: true
+    question: >-
+      Does the published material state what proportion of the organization's energy comes from
+      renewable sources? Give the percentage as published. A claim of "100% renewable
+      electricity" is a figure — record 100 and quote the scope it applies to, since electricity
+      is usually a subset of total energy. If no proportion is stated, answer not_disclosed.
+  relations:
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: esrs-e1-5 } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: gri-302-1 } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: sasb-energy-management } }
+
+# ── Water ────────────────────────────────────────────────────────────────────────────────────
+- type: EsgDatapoint
+  data:
+    id: water_withdrawal_total
+    name: Total water withdrawal
+    answerType: quantity
+    unit: m3
+    sourceClass: self-disclosure
+    staleAfter: 365d
+    requiresPeriod: true
+    question: >-
+      Does the published material report total water withdrawn or consumed? Give the figure,
+      unit and period as published, and note whether it says withdrawal or consumption — they
+      are different quantities and must not be conflated. If none is stated, answer
+      not_disclosed.
+  relations:
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: esrs-e3-4 } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: gri-303-3 } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: sasb-water-management } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: iris-water-use } }
+
+# ── Social ───────────────────────────────────────────────────────────────────────────────────
+- type: EsgDatapoint
+  data:
+    id: safety_incident_rate
+    name: Work-related injury rate
+    answerType: quantity
+    unit: rate
+    sourceClass: self-disclosure
+    staleAfter: 365d
+    requiresPeriod: true
+    question: >-
+      Does the published material report a work-related injury or accident rate? Give the figure,
+      the rate basis it is expressed on (per million hours worked, per 100 employees, …) and the
+      period, exactly as published. A statement that safety is important is NOT a rate — that is
+      not_disclosed for this datapoint.
+  relations:
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: esrs-s1-14 } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: gri-403-9 } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: sasb-employee-health-safety } }
+
+- type: EsgDatapoint
+  data:
+    id: board_gender_diversity
+    name: Gender diversity of the governing body
+    answerType: quantity
+    unit: percent
+    sourceClass: self-disclosure
+    staleAfter: 365d
+    question: >-
+      Does the published material state the gender composition of the board or governing body?
+      Give the percentage as published, or the counts if only counts are given. Naming the board
+      members is not a stated composition — do not count names to derive a figure. If no
+      composition is stated, answer not_disclosed.
+  relations:
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: esrs-s1-9 } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: gri-405-1 } }
+
+# ── Governance ───────────────────────────────────────────────────────────────────────────────
+- type: EsgDatapoint
+  data:
+    id: board_sustainability_oversight
+    name: Board oversight of sustainability
+    answerType: boolean
+    sourceClass: self-disclosure
+    staleAfter: 730d
+    values: [ "yes", "no", "not_disclosed" ]
+    question: >-
+      Does the published material state that the board or a board committee has responsibility
+      for sustainability or climate matters? Answer yes ONLY where the material says so — a
+      sustainability page with no mention of who governs it is not_disclosed, and a general
+      statement that the company cares about the environment is not board oversight.
+  relations:
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: esrs-gov-1 } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: gri-2-12 } }
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: issb-s1-governance } }
+
+- type: EsgDatapoint
+  data:
+    id: business_conduct_policy
+    name: Published business conduct or ethics policy
+    answerType: boolean
+    sourceClass: self-disclosure
+    staleAfter: 730d
+    values: [ "yes", "no", "not_disclosed" ]
+    question: >-
+      Does the published material include, or explicitly say it publishes, a code of conduct,
+      business ethics policy or anti-corruption policy? Answer yes only where such a policy is
+      named. A terms-and-conditions page, a privacy notice or a cookie policy is NOT a business
+      conduct policy — the baseline cites exactly those pages as evidence, and they do not
+      support this claim.
+  relations:
+    - { predicate: SATISFIES, to: { type: EsgRequirement, id: esrs-g1-1 } }

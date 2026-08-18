@@ -1,0 +1,94 @@
+# The reporting frameworks this realm can SPEAK. A framework is a language, not a schema:
+# observations are captured once, framework-neutral, and PROJECTED into whichever of these a
+# consumer needs. Adding a framework is catalogue data — a new file of requirements plus
+# SATISFIES edges from existing observations — never a re-extraction.
+#
+# Seeded idempotently (identity MERGE on `id`) on world load. Requirements reference these by id,
+# so this file must load first.
+
+- type: EsgFramework
+  data:
+    id: ghg-protocol
+    name: GHG Protocol
+    steward: World Resources Institute / WBCSD
+    kind: measurement-standard
+    description: >-
+      The measurement standard the others cite rather than replace. Defines the Scope 1/2/3
+      boundary and consolidation rules; a Scope 1 figure means nothing without the boundary it
+      was drawn on, which is why boundary is captured on the observation, not the requirement.
+    url: https://ghgprotocol.org/
+
+- type: EsgFramework
+  data:
+    id: esrs
+    name: ESRS (CSRD)
+    steward: EFRAG / European Commission
+    kind: mandatory-disclosure
+    jurisdiction: EU
+    description: >-
+      The European Sustainability Reporting Standards, the disclosure standard CSRD makes
+      mandatory. Double materiality: impact AND financial. Far the widest of these — on the
+      order of a thousand datapoints across E/S/G — so this realm covers a slice and says so.
+    url: https://www.efrag.org/
+
+- type: EsgFramework
+  data:
+    id: gri
+    name: GRI Standards
+    steward: Global Reporting Initiative
+    kind: voluntary-disclosure
+    description: >-
+      The oldest and most widely adopted voluntary standard; impact-oriented rather than
+      investor-oriented. Its 300-series maps closely onto ESRS E-topics, which is what makes a
+      shared observation layer worth having.
+    url: https://www.globalreporting.org/
+
+- type: EsgFramework
+  data:
+    id: issb
+    name: ISSB (IFRS S1/S2)
+    steward: IFRS Foundation
+    kind: investor-disclosure
+    description: >-
+      Investor-facing baseline. S1 general requirements, S2 climate. Built on the TCFD pillars
+      (governance, strategy, risk management, metrics and targets) and absorbed SASB's
+      industry-specific metrics.
+    url: https://www.ifrs.org/groups/international-sustainability-standards-board/
+
+- type: EsgFramework
+  data:
+    id: sasb
+    name: SASB Standards
+    steward: IFRS Foundation (formerly SASB / VRF)
+    kind: investor-disclosure
+    description: >-
+      Industry-specific: 77 industries, each with its own material topics and metrics. A SASB
+      projection is therefore only meaningful once the subject's industry is known — which is
+      why industry is a REGISTRY-sourced observation here, never scraped from a website.
+    url: https://sasb.ifrs.org/
+
+- type: EsgFramework
+  data:
+    id: iris-plus
+    name: IRIS+
+    steward: Global Impact Investing Network (GIIN)
+    kind: impact-measurement
+    description: >-
+      Impact-investing metric catalogue. Oriented to outcomes and beneficiaries rather than
+      corporate disclosure, so it overlaps this realm's observations only partially — included
+      because impact investors are a distinct consumer with a distinct vocabulary.
+    url: https://iris.thegiin.org/
+
+- type: EsgFramework
+  data:
+    id: vendor-baseline
+    name: Vendor baseline questionnaire
+    steward: third party
+    kind: questionnaire
+    verified: false
+    description: >-
+      A third-party ESG questionnaire, present ONLY as a comparison target: it is the dialect a
+      competing dataset speaks, so projecting our observations through it produces a row-for-row
+      diff. Its requirement codes are join keys, nothing more. Its own answers are NOT ground
+      truth — the baseline answers a quantitative question with "Yes" in 23 of 27 cases and has
+      no negative answers at all for 67 of its 97 metrics (see docs/BASELINE_DEFECTS.md).

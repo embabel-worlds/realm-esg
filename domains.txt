@@ -1,0 +1,13 @@
+# Domains for the head-to-head. All present in the baseline export, so every
+# result is directly comparable. Chosen for spread: multinationals that publish
+# real figures, and small firms that publish none — the baseline says "Yes" to both.
+schott.com
+ferrero.com
+skf.com
+ricoh.co.uk
+axa.com
+cofinimmo.com
+sarens.com
+kimchoc.be
+zomerparkfeest.nl
+lilleheden.dk

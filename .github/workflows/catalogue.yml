@@ -1,0 +1,16 @@
+# The catalogue is mirrored in three places that cannot read each other at runtime — the
+# extraction prompt, the enforced `oneOf` vocabulary, and the SATISFIES mappings. Drift between
+# them fails SILENTLY: a datapoint missing from the prompt is never extracted, and one missing
+# from the oneOf is extracted and then dropped. So the mirror is enforced here rather than
+# trusted to review.
+name: catalogue
+on: [push, pull_request]
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install pyyaml
+      - run: python3 scripts/check-catalogue-sync.py

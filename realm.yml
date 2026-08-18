@@ -1,0 +1,26 @@
+name: realm-esg
+description: >
+  Sustainability disclosure intelligence. Spider an organization's published material, chunk it
+  into a corpus, and extract TYPED, CITED observations — a number where the standard asks for a
+  number, a narrative where it asks for a narrative, and an explicit "not disclosed" where the
+  material is silent. Observations are framework-NEUTRAL: one observed fact
+  (`Scope 1 = 12,400 tCO2e, FY2024`) is captured once, cited once, and projected into GHG
+  Protocol, CSRD/ESRS, GRI, ISSB, SASB or IRIS+ language on demand via
+  (o:EsgObservation)-[:OF_DATAPOINT]->(d:EsgDatapoint)-[:SATISFIES]->(r:EsgRequirement)-[:IN_FRAMEWORK]->(f:EsgFramework).
+  Every observation carries the chunk it came from, so a citation can be CHECKED rather than
+  asserted. Absence of evidence is recorded as absence, never as assent.
+version: 0.1.0
+author: Embabel
+url: https://github.com/embabel/realm-esg
+tags:
+  - esg
+  - sustainability
+  - csrd
+  - gri
+  - issb
+  - sasb
+  - disclosure
+  - extraction
+exports:
+  - types/esg.yml
+  - producers/esg.yml

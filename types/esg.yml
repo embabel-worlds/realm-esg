@@ -1,0 +1,132 @@
+# ── The catalogue (seeded reference data, identical in every world) ──────────────────────────
+# Framework > Requirement, and the framework-neutral Datapoint that answers requirements across
+# several frameworks at once. These carry no company data; they are the vocabulary.
+
+- name: EsgFramework
+  visibility: internal
+  userAnchor: false
+  description: "A sustainability reporting framework this realm can speak — GHG Protocol, ESRS (CSRD), GRI, ISSB, SASB, IRIS+. Reach its asks via (f)<-[:IN_FRAMEWORK]-(r:EsgRequirement)."
+  properties:
+    id: { metadata: { identity: "true" } }
+    name: "Display name, e.g. 'GRI Standards'."
+    steward: "The body that maintains it."
+    kind: "measurement-standard | mandatory-disclosure | voluntary-disclosure | investor-disclosure | impact-measurement | questionnaire."
+    jurisdiction: "Where it is mandatory, when it is."
+    description: "What it is for, and what it does NOT cover."
+    url: "Where the standard is published."
+    verified: { type: boolean, description: "Whether this framework's requirement codes have been checked against the published standard. FALSE across the board in 0.1.0." }
+
+- name: EsgRequirement
+  visibility: internal
+  userAnchor: false
+  description: "One disclosure ask made by one framework, in that framework's own language and code (e.g. GRI 305-1, ESRS E1-6). Answered by an EsgDatapoint via (d)-[:SATISFIES]->(r). Codes are PROVISIONAL until verified against the published standard — check r.verified before quoting a code to anyone."
+  properties:
+    id: { metadata: { identity: "true" } }
+    code: "The framework's own identifier, e.g. '305-1'. PROVISIONAL while verified is false."
+    title: "What the framework asks for."
+    unit: "Expected unit where the ask is quantitative."
+    industrySpecific: { type: boolean, description: "True where the concrete code depends on the subject's industry (SASB). The stored code is then a topic-level stand-in." }
+    verified: { type: boolean, description: "Code checked against the published standard. FALSE in 0.1.0 for every requirement — see reference/requirements-core.yml." }
+
+- name: EsgDatapoint
+  visibility: internal
+  userAnchor: false
+  description: "One thing this realm observes in published material, defined WITHOUT reference to any framework, and mapped to every requirement it answers. The atom: capture once, cite once, project into any framework. d.answerType governs what a valid answer looks like — a quantity yields a number, a unit and a period, never a 'yes'."
+  properties:
+    id: { metadata: { identity: "true" } }
+    name: "Short display name."
+    answerType: "boolean | quantity | enum | narrative. The contract the extractor is held to."
+    unit: "Canonical unit for a quantity datapoint."
+    requiresPeriod: { type: boolean, description: "Whether a figure is meaningless without the reporting period it covers." }
+    sourceClass: "self-disclosure | registry | third-party. Decides what SILENCE means: for self-disclosure absence IS the answer; for registry the website is the wrong source and absence means nothing."
+    staleAfter: "How long an observation of this datapoint stays current, e.g. 365d."
+    values: { cardinality: LIST, description: "Closed answer vocabulary for boolean/enum, enforced by the producer." }
+    question: "The disclosure-form question put to the corpus. Asks what the published material SAYS, and always permits not_disclosed."
+
+# ── The observations (extracted per organization, cited to a chunk) ──────────────────────────
+
+- name: EsgObservation
+  visibility: internal
+  userAnchor: false
+  description: >-
+    One typed, cited observation extracted from an organization's published material. Reach it
+    from a bound Document: MATCH (d:Document)-[:HAS_OBSERVATIONS]->(o:EsgObservation).
+    o.value is the answer IN THE FORM THE DATAPOINT DEMANDS — a number for a quantity, the quoted
+    text for a narrative, one of the closed values for a boolean. o.quote is the verbatim sentence
+    supporting it and o.sourceChunkId identifies the chunk it was read from, so a citation can be
+    CHECKED. o.value = 'not_disclosed' is a real, meaningful finding: the material is silent.
+    NEVER treat a missing observation as a 'no' — missing means not looked for.
+  virtualJoins:
+    - anchorLabel: Document
+      relationship: HAS_OBSERVATIONS
+      keyField: uri
+      recordKeyField: docUri
+      producer: esgExtraction
+      description: "On-demand, graph-cached extraction of every catalogued datapoint the anchored document supports. First traversal extracts; repeats are plain graph hits until the document changes."
+  examples:
+    - q: "what does acme disclose about its emissions?"
+      cypher: |
+        MATCH (d:Document) WHERE d.publishedByDomain = 'acme.com'
+        MATCH (d)-[:HAS_OBSERVATIONS]->(o:EsgObservation)
+        WHERE o.datapointId STARTS WITH 'ghg_' AND o.value <> 'not_disclosed'
+        RETURN o.datapointId AS datapoint, o.value AS value, o.unit AS unit, o.period AS period, o.quote AS evidence
+    # A framework PROJECTION: the same observations, rendered in one framework's language.
+    - q: "give me acme's GRI numbers"
+      cypher: |
+        MATCH (d:Document) WHERE d.publishedByDomain = 'acme.com'
+        MATCH (d)-[:HAS_OBSERVATIONS]->(o:EsgObservation)
+        MATCH (dp:EsgDatapoint {id: o.datapointId})-[:SATISFIES]->(r:EsgRequirement)-[:IN_FRAMEWORK]->(:EsgFramework {id:'gri'})
+        RETURN r.code AS gri_code, r.title AS asks_for, o.value AS value, o.unit AS unit, o.quote AS evidence
+    # What a company does NOT disclose is the question a confirmation-only dataset cannot answer.
+    - q: "what is acme silent on?"
+      cypher: |
+        MATCH (d:Document) WHERE d.publishedByDomain = 'acme.com'
+        MATCH (d)-[:HAS_OBSERVATIONS]->(o:EsgObservation)
+        WHERE o.value = 'not_disclosed'
+        RETURN o.datapointId AS datapoint
+    # Comparison ALWAYS carries its n — the cohort is whatever has been assessed, never a market.
+    - q: "compare disclosure rates by industry"
+      cypher: |
+        MATCH (org:Organization)-[:IN_INDUSTRY]->(i:Industry)
+        MATCH (d:Document {publishedByDomain: org.domain})-[:HAS_OBSERVATIONS]->(o:EsgObservation)
+        WHERE o.datapointId = 'ghg_scope1'
+        RETURN i.name AS industry,
+               count(DISTINCT org) AS companies_assessed,
+               sum(CASE WHEN o.value <> 'not_disclosed' THEN 1 ELSE 0 END) AS disclosing
+  properties:
+    id:
+      description: "Synthesized identity — producer:owner:documentUri:hash:index. Stable while the document is unchanged."
+      metadata: { identity: "true" }
+    docUri: "URI of the document this was read from (= the anchor's uri)."
+    datapointId:
+      description: "The EsgDatapoint this answers. Join to (dp:EsgDatapoint {id: o.datapointId}) to reach its framework requirements."
+      # ENFORCED vocabulary — mirrors reference/datapoints.yml, checked by
+      # scripts/check-catalogue-sync.py. The extract backend DROPS any record whose
+      # datapointId is off this list: a model that finds a real disclosure we do not
+      # catalogue will label it anyway, and an invented id is worse than a missing row.
+      validation:
+        - rule: oneOf
+          values:
+            - ghg_scope1
+            - ghg_scope2_location
+            - ghg_scope2_market
+            - ghg_scope3
+            - ghg_reduction_target
+            - climate_transition_plan
+            - energy_consumption_total
+            - renewable_energy_share
+            - water_withdrawal_total
+            - safety_incident_rate
+            - board_gender_diversity
+            - board_sustainability_oversight
+            - business_conduct_policy
+    value: "The answer, in the form the datapoint's answerType demands. 'not_disclosed' where the material is silent."
+    unit: "Unit as published, for a quantity. NOT converted — a figure in kWh stays kWh."
+    period: "Reporting period the figure covers, as published."
+    quote: "The verbatim sentence the answer was read from. Never a paraphrase."
+    confidence:
+      description: "How directly the quote supports the value."
+      validation:
+        - rule: oneOf
+          values: [ direct, inferred ]
+    sourceChunkId: "Provenance — the chunk the quote came from, so the citation can be checked."
