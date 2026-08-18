@@ -103,4 +103,11 @@
          record the total under ghg_scope1_and_2 and answer not_disclosed for ghg_scope1 and for
          ghg_scope2_location. Splitting a combined figure invents a precision the source does not
          have, and doubles the emissions when the two are added up.
+
+         SCOPE AND METHOD ARE DIFFERENT THINGS. "location-based" and "market-based" describe HOW a
+         figure was calculated, not WHICH scope it covers. A number introduced as covering
+         "Scope 1 and 2" stays a COMBINED figure even when it also carries a method label — e.g.
+         "emissions (Scope 1 and 2) amounted to around 1 million tonnes; the exact (location-based)
+         footprint was 641,081 tonnes" reports ONE combined location-based figure of 641,081, not a
+         Scope 2 figure. Read the scope from the scope words, never from the method words.
       7. Answer only for the ids listed. Skip anything else the text happens to contain.
