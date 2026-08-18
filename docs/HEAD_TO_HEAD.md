@@ -1,17 +1,22 @@
-# Head to head — first real run
+# Head to head
 
 Three companies, **the baseline's own cited URLs** as input, so the evidence is identical and any
-difference is extraction quality alone. 107 baseline rows against 78 observations.
+difference is extraction quality alone.
+
+## v0.7.1 — after the combined-scope fix
+
+107 baseline rows against 112 observations.
 
 | | baseline | realm-esg |
 |---|---|---|
-| quantitative/open questions answered with a figure | **0.0%** (0 of 14) | **100%** (6 of 6) |
-| answers that are a negative / not-disclosed | 0.9% | 78.2% |
-| answered rows carrying evidence | 90.7% | 88.2% |
+| quantitative/open questions answered with a figure | **0 of 14** | **6 of 6** |
+| answers that are a negative / not-disclosed | 0.9% | 79.5% |
+| answered rows carrying evidence | 90.7% | 73.9% |
+| same number reported under two datapoints | n/a | **0** |
 
 ## The difference, in their own rows
 
-SCHOTT's sustainability page, asked what its emissions are:
+SCHOTT, asked about emissions:
 
 | | |
 |---|---|
@@ -25,29 +30,32 @@ AXA, asked about climate action:
 | baseline | `PAS_CLI_ACT_IMP` → **"Yes"** |
 | realm-esg | `ghg_reduction_target` → *"2030 interim targets as an insurer: 20% reduction in the carbon intensity…"* |
 
-## The defect our own run has, and why it is visible
+## The combined Scope 1+2 defect — fixed, with a residue
 
-SCHOTT returned **641,081 tCO₂e for BOTH `ghg_scope1` and `ghg_scope2_location`** — wrong. The page
-reports a combined figure, and the model split it across two datapoints instead of recording that it
-could not separate them.
+Before: 641,081 tCO₂e was reported as **both** `ghg_scope1` and `ghg_scope2_location`, doubling the
+total for anyone who added them.
 
-The quote is what exposes it: *"In the base year 2019, our direct and indirect emissions (Scope 1 and
-2) amounted to around…"*. Anyone can see in one line that a combined number was double-counted.
+Now: no value appears under two datapoints, `ghg_scope1` is `not_disclosed`, and the combined figure
+has its own datapoint whose framework mapping is deliberately partial — it satisfies ESRS E1-6 and
+ISSB S2, which ask for gross emissions and a total, but **not** GRI 305-1 or 305-2, which ask for
+each scope separately. A GRI projection therefore shows the scopes as undisclosed, which is true.
 
-That is the property being claimed here. Not that the extractor is never wrong — it is wrong in this
-very run — but that a wrong answer arrives with the evidence that refutes it. A dataset whose cell
-reads `Yes` with a link to `/cookie-policy` cannot be caught this way, by anyone, ever.
+The residue is the page itself:
 
-**Fix owed:** a combined-scope figure must record as `not_disclosed` for each scope separately, with
-the combined value noted — or a `ghg_scope1_and_2` datapoint. Not yet done.
+> *"our direct and indirect emissions (Scope 1 and 2) amounted to around 1 million tonnes of CO₂e.
+> The exact **(location-based)** footprint was 641,081 tonnes"*
 
-## Cost
+The extractor still records 641,081 as `ghg_scope2_location`, citing the second sentence — which,
+read alone, genuinely does describe a location-based footprint. `location-based` is a *method*, not
+a scope, and rule 6 now says so with this exact sentence as its worked example, but the model still
+prefers the local reading. The number is no longer double-counted; whether it belongs to Scope 2 or
+to the combined figure remains arguable, and the quote lets a reader decide.
 
-| company | documents | model calls | observations |
-|---|---|---|---|
-| schott.com | 1 | 1 | 13 |
-| ricoh.co.uk | 2 | 2 | 26 |
-| axa.com | 1 | 3 | 39 |
+## Two open defects
 
-One call per document (three where a page ran to 86 chunks), then graph-cached: repeats are free
-until the document changes.
+- **`EsgExtract` anchoring is unreliable for AXA.** `WHERE d.uri CONTAINS $domain` materializes for
+  schott.com and ricoh.co.uk but returns 0 for axa.com; an exact-URI anchor works. Not understood.
+- **Observations accumulate across runs.** AXA holds 84 observations over 2 documents where ~28 are
+  expected: re-extraction appends rather than replaces, which also drags the evidence rate down from
+  88.2% to 73.9% as quote-less duplicates pile up. The count of *distinct* findings is unaffected,
+  but any rate computed over rows is now wrong.
