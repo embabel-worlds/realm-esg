@@ -58,7 +58,12 @@ def main() -> int:
 
     confirmed, candidates, stats = [], [], {"disclosed": 0, "silent": 0}
     for dom in args.domains:
-        answers = post(f"/api/v1/views/EsgExtract/invoke", {"args": {"domain": dom}}).get("data") or []
+        # Per DOCUMENT, never per domain: one request per page keeps cost bounded and progress
+        # visible, and avoids the case where a multi-page company stalls a single request.
+        answers = []
+        for doc in post("/api/v1/views/EsgDocuments/invoke", {"args": {"domain": dom}}).get("data") or []:
+            print(f"  {dom}: reading {doc['uri'][:78]} ({doc['chunks']} chunks)…", flush=True)
+            answers += post("/api/v1/views/EsgExtractDocument/invoke", {"args": {"uri": doc["uri"]}}).get("data") or []
         if not answers:
             print(f"{dom}: no observations — populate first", file=sys.stderr)
             continue

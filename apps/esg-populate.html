@@ -371,7 +371,15 @@ document.getElementById('go').addEventListener('click', async () => {
     if (n) {
       say(`  reading ${n} document(s) — one model call each, slow the first time...`, 'dim');
       try {
-        const obs = (await view('EsgExtract', {domain: t.domain})).rows || [];
+        // One request per DOCUMENT. A whole-domain request materializes every page inside a single
+        // call: on a two-page company (366 chunks) that ran over six minutes without starting a
+        // window, while per-document calls finished in minutes. Bounded work, visible progress.
+        const docs = (await view('EsgDocuments', {domain: t.domain})).rows || [];
+        let obs = [];
+        for (const [k, doc] of docs.entries()) {
+          say(`  reading ${k + 1}/${docs.length}: ${doc.chunks} chunks…`, 'dim');
+          obs = obs.concat((await view('EsgExtractDocument', {uri: doc.uri})).rows || []);
+        }
         const said = obs.filter(o => o.value && o.value !== 'not_disclosed').length;
         totalObs += obs.length;
         say(`  ${obs.length} observation(s): ${said} disclosed, ${obs.length - said} not disclosed`,

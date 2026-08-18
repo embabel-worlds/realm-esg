@@ -210,3 +210,48 @@
            collect(DISTINCT f.name) AS frameworks,
            collect(DISTINCT r.code) AS requirementCodes
     ORDER BY dp.answerType, dp.id
+
+# ── The bounded unit of work. Extract ONE document. ─────────────────────────────────────────
+- name: EsgExtractDocument
+  description: >-
+    Read ONE document and return its observations. This is the bounded unit of extraction and the
+    one to drive a batch with: cost is proportional to a single document, progress is visible per
+    document, and a slow page cannot stall the others.
+    Prefer this over EsgExtract for anything that loops. EsgExtract takes a DOMAIN, so a company
+    with several pages materializes all of them inside one request — measured on axa.com's two
+    pages (366 chunks): the same work completed per-document in minutes, and per-domain it ran
+    over six minutes without starting a single window or emitting a log line, while the app stayed
+    fully responsive to everything else. Bounding the request avoids the failure rather than
+    waiting on it.
+  params:
+    uri:
+      type: string
+      description: "Exact document uri, as listed by EsgDocuments."
+  cypher: |
+    MATCH (d:Document {uri: $uri})-[:HAS_OBSERVATIONS {ai: {materialize: true}}]->(o:EsgObservation)
+    WITH o.datapointId AS dpId, collect(o) AS obs
+    WITH dpId, obs, [x IN obs WHERE x.value <> 'not_disclosed'] AS said
+    WITH dpId,
+         CASE WHEN size(said) > 0 THEN said[0] ELSE obs[0] END AS o,
+         size(said) AS windowsDisclosing,
+         size(obs) AS windowsRead
+    RETURN o.docUri AS document, dpId AS datapoint, o.value AS value,
+           o.unit AS unit, o.period AS period, o.quote AS quote, o.sourceChunkId AS chunkId,
+           windowsDisclosing, windowsRead
+    ORDER BY datapoint
+
+# ── The work list ────────────────────────────────────────────────────────────────────────────
+- name: EsgDocuments
+  description: >-
+    The ingested documents for one organization, largest first, with their chunk counts. The work
+    list for a batch: iterate these through EsgExtractDocument rather than asking for a whole
+    domain at once. Reads nothing virtual, so it never triggers extraction.
+  params:
+    domain:
+      type: string
+      description: "The organization's domain, e.g. 'acme.com'."
+  cypher: |
+    MATCH (d:Document) WHERE 'esg' IN d.tags AND d.uri CONTAINS $domain
+    OPTIONAL MATCH (c:Chunk)-[:HAS_PARENT*]->(d:Document)
+    RETURN d.uri AS uri, d.title AS title, count(c) AS chunks
+    ORDER BY chunks DESC
