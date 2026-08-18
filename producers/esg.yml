@@ -49,7 +49,7 @@
         - id: ghg_scope1_and_2  (quantity, unit tCO2e, period required)
           Does the published material report Scope 1 and Scope 2 emissions ONLY as a single combined figure, without giving each separately? If so, give that combined figure, its unit and the period. If the material breaks the two out separately, answer not_disclosed here and record each under its own datapoint instead. Never report the same number twice.
         - id: ghg_reduction_target  (narrative)
-          Does the published material state a greenhouse gas reduction target? If so, quote it — including the percentage or absolute reduction, the baseline year, and the target year. A stated ambition without a figure or date is still a target: quote it as published rather than converting it into one. If no target is stated, answer not_disclosed.
+          Does the published material state a greenhouse gas reduction target? If so, quote it — including the percentage or absolute reduction, the baseline year and the target year WHERE GIVEN. A commitment with NO numbers at all is still a target and must be recorded: joining the Science Based Targets initiative, a validated science-based pathway, a net-zero-by-YEAR pledge, or "ambitious reduction targets across all scopes" all count. Answer not_disclosed only when the material states no reduction commitment whatsoever.
         - id: climate_transition_plan  (narrative)
           Does the published material describe a plan for reducing the organization's climate impact — actions taken or committed to, with what they are expected to achieve? Quote what it actually says. This is the datapoint the baseline answers with the word "Yes" 79 times; a bare affirmation is NOT an answer here. If the material describes no such plan, answer not_disclosed.
         - id: energy_consumption_total  (quantity, unit MWh, period required)
@@ -82,12 +82,17 @@
         - "period": the reporting period the figure covers, as published, when the datapoint
           requires one. Omit if the text does not say.
         - "quote": the VERBATIM sentence supporting the answer — never a paraphrase, never
-          assembled from separate places. Omit ONLY when value is "not_disclosed".
+          assembled from separate places. Copy it character for character from the excerpt. When
+          value is "not_disclosed", set quote to the literal string NONE. Every record carries this
+          field: there is no third option, and a record without it is discarded.
         - "confidence": "direct" when the quote states the answer outright; "inferred" when you
           read it from surrounding context; "not_disclosed" when the value is "not_disclosed"
           (there is no quote to support, so neither of the others applies). If you would need to
           assume anything, prefer a "not_disclosed" value over an "inferred" one.
-        - "sourceIndex": the excerpt number the quote came from.
+        - "sourceIndex": the number in square brackets at the START of the excerpt you copied the
+          quote from — [3] means sourceIndex 3. It is what lets a reader find the quote again, so
+          a wrong number is a broken citation even when the quote itself is correct. If the quote
+          spans two excerpts, quote from one of them and give THAT number; never guess.
 
       RULES, in order of importance:
       1. A quantitative datapoint is answered with a NUMBER or with "not_disclosed". Never "Yes".
@@ -110,7 +115,12 @@
          "emissions (Scope 1 and 2) amounted to around 1 million tonnes; the exact (location-based)
          footprint was 641,081 tonnes" reports ONE combined location-based figure of 641,081, not a
          Scope 2 figure. Read the scope from the scope words, never from the method words.
-      7. Answer only for the ids listed. Skip anything else the text happens to contain.
+      7. A COMMITMENT WITHOUT NUMBERS IS STILL A TARGET. "We have joined the Science Based Targets
+         initiative and set ourselves ambitious CO2 reduction targets across all three scopes" is a
+         published reduction target and must be recorded as one, quoted as written. Do not hold out
+         for a percentage and a baseline year: the datapoint asks what the material SAYS, and
+         answering not_disclosed because the figures are missing loses a real disclosure.
+      8. Answer only for the ids listed. Skip anything else the text happens to contain.
 
   # PERSIST. Without this the producer is transient: every traversal re-runs the model, nothing is
   # written, and MATCH (o:EsgObservation) in raw Neo4j returns zero however many observations a view

@@ -136,7 +136,18 @@
     value: "The answer, in the form the datapoint's answerType demands. 'not_disclosed' where the material is silent."
     unit: "Unit as published, for a quantity. NOT converted — a figure in kWh stays kWh."
     period: "Reporting period the figure covers, as published."
-    quote: "The verbatim sentence the answer was read from. Never a paraphrase."
+    quote:
+      description: >-
+        The verbatim sentence the answer was read from — never a paraphrase. The literal string
+        NONE where the material is silent, which is the only case with nothing to quote.
+      # RULE 5, ENFORCED. The prompt has always said "no quote means no answer" and the backend
+      # accepted an answer with an empty quote anyway — one of 14 in the first audit. There are no
+      # cross-field rules, so the constraint is expressed as a sentinel: every record must carry
+      # either NONE or a quote of real length, and a disclosed answer may not say NONE. A record
+      # violating this is DROPPED by the extract backend rather than stored unsupported.
+      validation:
+        - rule: regex
+          pattern: "^(NONE|.{25,})$"
     confidence:
       description: >-
         How directly the quote supports the value: `direct` when the quote states it outright,

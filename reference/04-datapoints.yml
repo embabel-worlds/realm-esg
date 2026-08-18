@@ -135,9 +135,11 @@
     staleAfter: 365d
     question: >-
       Does the published material state a greenhouse gas reduction target? If so, quote it —
-      including the percentage or absolute reduction, the baseline year, and the target year.
-      A stated ambition without a figure or date is still a target: quote it as published rather
-      than converting it into one. If no target is stated, answer not_disclosed.
+      including the percentage or absolute reduction, the baseline year and the target year WHERE
+      GIVEN. A commitment with NO numbers at all is still a target and must be recorded: joining the
+      Science Based Targets initiative, a validated science-based pathway, a net-zero-by-YEAR
+      pledge, or "ambitious reduction targets across all scopes" all count. Answer not_disclosed
+      only when the material states no reduction commitment whatsoever.
   relations:
     - { predicate: SATISFIES, to: { type: EsgRequirement, id: esrs-e1-4 } }
     - { predicate: SATISFIES, to: { type: EsgRequirement, id: gri-305-5 } }
