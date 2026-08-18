@@ -3,7 +3,10 @@
 # several frameworks at once. These carry no company data; they are the vocabulary.
 
 - name: EsgFramework
-  visibility: internal
+  # NOT `visibility: internal`. World.repositoryTypes filters internal names out, and the reference
+  # seeder resolves entries against repositoryTypes — so an internal type is seeded as "unknown
+  # reference type 'EsgFramework'" while the realm itself loads perfectly. This catalogue is seeded
+  # data, so it must be visible. EsgObservation stays internal: it is produced, never seeded.
   userAnchor: false
   description: "A sustainability reporting framework this realm can speak — GHG Protocol, ESRS (CSRD), GRI, ISSB, SASB, IRIS+. Reach its asks via (f)<-[:IN_FRAMEWORK]-(r:EsgRequirement)."
   properties:
@@ -17,7 +20,10 @@
     verified: { type: boolean, description: "Whether this framework's requirement codes have been checked against the published standard. FALSE across the board in 0.1.0." }
 
 - name: EsgRequirement
-  visibility: internal
+  # NOT `visibility: internal`. World.repositoryTypes filters internal names out, and the reference
+  # seeder resolves entries against repositoryTypes — so an internal type is seeded as "unknown
+  # reference type 'EsgRequirement'" while the realm itself loads perfectly. This catalogue is seeded
+  # data, so it must be visible. EsgObservation stays internal: it is produced, never seeded.
   userAnchor: false
   description: "One disclosure ask made by one framework, in that framework's own language and code (e.g. GRI 305-1, ESRS E1-6). Answered by an EsgDatapoint via (d)-[:SATISFIES]->(r). Codes are PROVISIONAL until verified against the published standard — check r.verified before quoting a code to anyone."
   properties:
@@ -29,7 +35,10 @@
     verified: { type: boolean, description: "Code checked against the published standard. FALSE in 0.1.0 for every requirement — see reference/requirements-core.yml." }
 
 - name: EsgDatapoint
-  visibility: internal
+  # NOT `visibility: internal`. World.repositoryTypes filters internal names out, and the reference
+  # seeder resolves entries against repositoryTypes — so an internal type is seeded as "unknown
+  # reference type 'EsgDatapoint'" while the realm itself loads perfectly. This catalogue is seeded
+  # data, so it must be visible. EsgObservation stays internal: it is produced, never seeded.
   userAnchor: false
   description: "One thing this realm observes in published material, defined WITHOUT reference to any framework, and mapped to every requirement it answers. The atom: capture once, cite once, project into any framework. d.answerType governs what a valid answer looks like — a quantity yields a number, a unit and a period, never a 'yes'."
   properties:
