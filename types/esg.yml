@@ -172,4 +172,9 @@
       validation:
         - rule: oneOf
           values: [ direct, inferred, not_disclosed ]
-    sourceChunkId: "Provenance — the chunk the quote came from, so the citation can be checked."
+    sourceChunkId: >-
+      Provenance — the chunk the quote came from. A POINTER, and the weaker half of the citation:
+      it is the model's own excerpt number and has been observed off by one, pointing at the
+      excerpt before the real one. `quote` is the authoritative evidence and is verified verbatim
+      against the source by scripts/audit.py; when the two disagree, the quote is right. Check a
+      citation by searching the document for the quote, not by trusting this id alone.

@@ -95,9 +95,17 @@
           (there is no quote to support, so neither of the others applies). If you would need to
           assume anything, prefer a "not_disclosed" value over an "inferred" one.
         - "sourceIndex": the number in square brackets at the START of the excerpt you copied the
-          quote from — [3] means sourceIndex 3. It is what lets a reader find the quote again, so
-          a wrong number is a broken citation even when the quote itself is correct. If the quote
-          spans two excerpts, quote from one of them and give THAT number; never guess.
+          quote from — [3] means sourceIndex 3.
+
+          THE EXCERPTS ARE NUMBERED FROM ZERO. The first excerpt above is [0], not [1]. Copy the
+          bracketed number exactly as printed; do NOT renumber, do NOT count positions yourself,
+          and do NOT convert to a 1-based list. Adding one is the single most likely way to get
+          this wrong, and it produces a citation that points at the excerpt BEFORE the real one —
+          a quote that is perfectly true and cannot be found where it says it is.
+
+          It is what lets a reader find the quote again, so a wrong number is a broken citation
+          even when the quote itself is correct. If the quote spans two excerpts, quote from one of
+          them and give THAT number; never guess.
 
       RULES, in order of importance:
       1. A quantitative datapoint is answered with a NUMBER or with "not_disclosed". Never "Yes".
