@@ -125,12 +125,8 @@
       description: "Framework id: ghg-protocol | esrs | gri | issb | sasb | iris-plus | vendor-baseline."
   cypher: |
     MATCH (f:EsgFramework {id: $framework})<-[:IN_FRAMEWORK]-(r:EsgRequirement)<-[:SATISFIES]-(dp:EsgDatapoint)
-    OPTIONAL MATCH (d:Document) WHERE 'esg' IN d.tags AND
-      $domain IN [ [t IN d.tags WHERE t STARTS WITH 'domain:'][0],
-                   'domain:' + $domain,
-                   replace(split(replace(replace(d.uri,'https://',''),'http://',''),'/')[0],'www.','') ]
     OPTIONAL MATCH (d:Document)-[:HAS_OBSERVATIONS]->(o:EsgObservation)
-      WHERE o.datapointId = dp.id
+      WHERE d.uri CONTAINS $domain AND o.datapointId = dp.id
     RETURN r.code AS code, r.title AS requirement, r.verified AS codeVerified,
            dp.name AS datapoint,
            coalesce(o.value, 'not_assessed') AS value, o.unit AS unit, o.period AS period,
@@ -149,10 +145,8 @@
       description: "The organization's domain, e.g. 'acme.com'."
   cypher: |
     MATCH (dp:EsgDatapoint)
-    OPTIONAL MATCH (d:Document) WHERE 'esg' IN d.tags AND
-      $domain = replace(split(replace(replace(d.uri,'https://',''),'http://',''),'/')[0],'www.','')
     OPTIONAL MATCH (d:Document)-[:HAS_OBSERVATIONS]->(o:EsgObservation)
-      WHERE o.datapointId = dp.id
+      WHERE d.uri CONTAINS $domain AND o.datapointId = dp.id
     WITH dp, o
     WHERE o IS NULL OR o.value = 'not_disclosed'
     RETURN dp.name AS datapoint, dp.answerType AS type,
