@@ -108,11 +108,12 @@ const view = async (name, args) => {
 const el = id => document.getElementById(id);
 // The realm ships its own catalogue, so an observation can always be named and typed even when the
 // reference data has never been seeded into the graph.
-let CAT = {};
+let CAT = {}, FRAMEWORKS = [];
 const loadCatalogue = async () => {
   try {
     const c = await (await fetch('esg-catalogue.json', {credentials: 'same-origin'})).json();
     CAT = Object.fromEntries((c.datapoints || []).map(d => [d.id, d]));
+    FRAMEWORKS = c.frameworks || [];
   } catch (e) { /* falls back to the raw id */ }
 };
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -138,12 +139,30 @@ async function render() {
     if (framework) {
       el('title').textContent = el('framework').selectedOptions[0].text;
       el('subtitle').textContent = 'The same observations, projected into this framework. Captured once, cited once.';
+      // Projected from the SHIPPED catalogue, not by traversal: the reference seeder writes
+      // catalogue nodes but not their relations, so there is no SATISFIES/IN_FRAMEWORK edge in the
+      // graph to walk. The mapping is realm data either way, and this works unseeded.
+      const obs = await view('EsgProfile', {domain});
+      const byId = {};
+      for (const o of obs) byId[o.datapoint] = o;   // EsgProfile returns the datapoint NAME
+      const byName = Object.fromEntries(Object.values(CAT).map(d => [d.name, d]));
+      const rows = [];
+      for (const dp of Object.values(CAT)) {
+        for (const req of (dp.requirements || [])) {
+          if (req.framework !== framework) continue;
+          const o = byId[dp.name] || byId[dp.id];
+          rows.push({code: req.code, requirement: req.title, datapoint: dp.name,
+                     value: o ? o.value : 'not_assessed', unit: o?.unit, period: o?.period,
+                     evidence: o?.evidence});
+        }
+      }
+      rows.sort((a, b) => String(a.code).localeCompare(String(b.code)));
       paint('main', [
         {label: 'Code',        cell: r => `<code>${esc(r.code)}</code>`},
         {label: 'Requirement', cell: r => esc(r.requirement)},
         {label: 'Value',       cell: valueCell},
         {label: 'Evidence',    cell: r => `<div class="quote">${esc(r.evidence || '')}</div>`},
-      ], await view('EsgFrameworkReport', {domain, framework}));
+      ], rows);
     } else {
       el('title').textContent = 'Observations';
       el('subtitle').textContent = 'Every answer carries the sentence it was read from.';

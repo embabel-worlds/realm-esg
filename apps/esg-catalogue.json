@@ -1,7 +1,37 @@
 {
  "_comment": [
-  "GENERATED from reference/datapoints.yml \u2014 do not hand-edit; scripts/check-catalogue-sync.py fails if they drift.",
-  "Shipped so the apps can name and type an observation WITHOUT the reference data having been seeded into the graph. Seeding remains necessary for graph-side queries (chat, kg_query, the framework views); it is no longer necessary for the apps to display what was extracted."
+  "GENERATED from reference/04-datapoints.yml \u2014 do not hand-edit; scripts/check-catalogue-sync.py fails if they drift.",
+  "Carries the FRAMEWORK MAPPING as well as names and types, because the reference seeder writes catalogue NODES but not their relations: the graph holds 7 frameworks, 130 requirements and 13 datapoints with zero IN_FRAMEWORK and zero SATISFIES between them. The apps therefore project frameworks from this file rather than by traversal, and work whether or not anything has been seeded."
+ ],
+ "frameworks": [
+  {
+   "id": "ghg-protocol",
+   "name": "GHG Protocol"
+  },
+  {
+   "id": "esrs",
+   "name": "ESRS (CSRD)"
+  },
+  {
+   "id": "gri",
+   "name": "GRI Standards"
+  },
+  {
+   "id": "issb",
+   "name": "ISSB (IFRS S1/S2)"
+  },
+  {
+   "id": "sasb",
+   "name": "SASB Standards"
+  },
+  {
+   "id": "iris-plus",
+   "name": "IRIS+"
+  },
+  {
+   "id": "vendor-baseline",
+   "name": "Vendor baseline questionnaire"
+  }
  ],
  "datapoints": [
   {
@@ -11,12 +41,42 @@
    "unit": "tCO2e",
    "sourceClass": "self-disclosure",
    "requirements": [
-    "Scope 1",
-    "E1-6",
-    "305-1",
-    "S2 Metrics",
-    "GHG Emissions (topic)",
-    "TBD"
+    {
+     "code": "Scope 1",
+     "title": "Direct GHG emissions from owned or controlled sources",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "E1-6",
+     "title": "Gross Scopes 1, 2, 3 and total GHG emissions",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "305-1",
+     "title": "Direct (Scope 1) GHG emissions",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "S2 Metrics",
+     "title": "Gross Scopes 1, 2 and 3 greenhouse gas emissions",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "GHG Emissions (topic)",
+     "title": "Gross global Scope 1 emissions",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "TBD",
+     "title": "Greenhouse gas emissions (IRIS+ metric id to be resolved)",
+     "framework": null,
+     "verified": false
+    }
    ]
   },
   {
@@ -26,10 +86,30 @@
    "unit": "tCO2e",
    "sourceClass": "self-disclosure",
    "requirements": [
-    "Scope 2 (location-based)",
-    "E1-6",
-    "305-2",
-    "S2 Metrics"
+    {
+     "code": "Scope 2 (location-based)",
+     "title": "Indirect emissions from purchased energy, grid-average factors",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "E1-6",
+     "title": "Gross Scopes 1, 2, 3 and total GHG emissions",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "305-2",
+     "title": "Energy indirect (Scope 2) GHG emissions",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "S2 Metrics",
+     "title": "Gross Scopes 1, 2 and 3 greenhouse gas emissions",
+     "framework": null,
+     "verified": false
+    }
    ]
   },
   {
@@ -39,9 +119,24 @@
    "unit": "tCO2e",
    "sourceClass": "self-disclosure",
    "requirements": [
-    "Scope 2 (market-based)",
-    "E1-6",
-    "305-2"
+    {
+     "code": "Scope 2 (market-based)",
+     "title": "Indirect emissions from purchased energy, contractual instruments",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "E1-6",
+     "title": "Gross Scopes 1, 2, 3 and total GHG emissions",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "305-2",
+     "title": "Energy indirect (Scope 2) GHG emissions",
+     "framework": null,
+     "verified": false
+    }
    ]
   },
   {
@@ -51,10 +146,30 @@
    "unit": "tCO2e",
    "sourceClass": "self-disclosure",
    "requirements": [
-    "Scope 3",
-    "E1-6",
-    "305-3",
-    "S2 Metrics"
+    {
+     "code": "Scope 3",
+     "title": "Other indirect value-chain emissions",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "E1-6",
+     "title": "Gross Scopes 1, 2, 3 and total GHG emissions",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "305-3",
+     "title": "Other indirect (Scope 3) GHG emissions",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "S2 Metrics",
+     "title": "Gross Scopes 1, 2 and 3 greenhouse gas emissions",
+     "framework": null,
+     "verified": false
+    }
    ]
   },
   {
@@ -64,9 +179,24 @@
    "unit": null,
    "sourceClass": "self-disclosure",
    "requirements": [
-    "E1-4",
-    "305-5",
-    "S2 Targets"
+    {
+     "code": "E1-4",
+     "title": "Targets related to climate change mitigation and adaptation",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "305-5",
+     "title": "Reduction of GHG emissions",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "S2 Targets",
+     "title": "Climate-related targets",
+     "framework": null,
+     "verified": false
+    }
    ]
   },
   {
@@ -76,8 +206,18 @@
    "unit": null,
    "sourceClass": "self-disclosure",
    "requirements": [
-    "E1-1",
-    "S2 Strategy"
+    {
+     "code": "E1-1",
+     "title": "Transition plan for climate change mitigation",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "S2 Strategy",
+     "title": "Climate-related transition plan",
+     "framework": null,
+     "verified": false
+    }
    ]
   },
   {
@@ -87,10 +227,30 @@
    "unit": "MWh",
    "sourceClass": "self-disclosure",
    "requirements": [
-    "E1-5",
-    "302-1",
-    "Energy Management (topic)",
-    "TBD"
+    {
+     "code": "E1-5",
+     "title": "Energy consumption and mix",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "302-1",
+     "title": "Energy consumption within the organization",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "Energy Management (topic)",
+     "title": "Total energy consumed, percentage grid electricity, percentage renewable",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "TBD",
+     "title": "Energy consumed (IRIS+ metric id to be resolved)",
+     "framework": null,
+     "verified": false
+    }
    ]
   },
   {
@@ -100,9 +260,24 @@
    "unit": "percent",
    "sourceClass": "self-disclosure",
    "requirements": [
-    "E1-5",
-    "302-1",
-    "Energy Management (topic)"
+    {
+     "code": "E1-5",
+     "title": "Energy consumption and mix",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "302-1",
+     "title": "Energy consumption within the organization",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "Energy Management (topic)",
+     "title": "Total energy consumed, percentage grid electricity, percentage renewable",
+     "framework": null,
+     "verified": false
+    }
    ]
   },
   {
@@ -112,10 +287,30 @@
    "unit": "m3",
    "sourceClass": "self-disclosure",
    "requirements": [
-    "E3-4",
-    "303-3",
-    "Water Management (topic)",
-    "TBD"
+    {
+     "code": "E3-4",
+     "title": "Water consumption",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "303-3",
+     "title": "Water withdrawal",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "Water Management (topic)",
+     "title": "Total water withdrawn and consumed",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "TBD",
+     "title": "Water use (IRIS+ metric id to be resolved)",
+     "framework": null,
+     "verified": false
+    }
    ]
   },
   {
@@ -125,9 +320,24 @@
    "unit": "rate",
    "sourceClass": "self-disclosure",
    "requirements": [
-    "S1-14",
-    "403-9",
-    "Employee Health & Safety (topic)"
+    {
+     "code": "S1-14",
+     "title": "Health and safety metrics",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "403-9",
+     "title": "Work-related injuries",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "Employee Health & Safety (topic)",
+     "title": "Injury and fatality rates",
+     "framework": null,
+     "verified": false
+    }
    ]
   },
   {
@@ -137,8 +347,18 @@
    "unit": "percent",
    "sourceClass": "self-disclosure",
    "requirements": [
-    "S1-9",
-    "405-1"
+    {
+     "code": "S1-9",
+     "title": "Diversity metrics",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "405-1",
+     "title": "Diversity of governance bodies and employees",
+     "framework": null,
+     "verified": false
+    }
    ]
   },
   {
@@ -148,9 +368,24 @@
    "unit": null,
    "sourceClass": "self-disclosure",
    "requirements": [
-    "GOV-1",
-    "2-12",
-    "S1 Governance"
+    {
+     "code": "GOV-1",
+     "title": "Role of the administrative, management and supervisory bodies",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "2-12",
+     "title": "Role of the highest governance body in overseeing the management of impacts",
+     "framework": null,
+     "verified": false
+    },
+    {
+     "code": "S1 Governance",
+     "title": "Governance processes, controls and procedures used to monitor sustainability-related risks and opportunities",
+     "framework": null,
+     "verified": false
+    }
    ]
   },
   {
@@ -160,7 +395,12 @@
    "unit": null,
    "sourceClass": "self-disclosure",
    "requirements": [
-    "G1-1"
+    {
+     "code": "G1-1",
+     "title": "Business conduct policies and corporate culture",
+     "framework": null,
+     "verified": false
+    }
    ]
   }
  ]
