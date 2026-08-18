@@ -121,3 +121,30 @@ both the market-based and location-based methods and disclose both"*, and `ghg_s
 Numbers are verified against the sentence they were drawn from, not against the companies' own
 reporting. Three companies, 14 datapoints, 42 answers. All 33 framework codes remain
 `verified: false`.
+
+
+---
+
+# Citation accuracy after the zero-based fix (1.3.0)
+
+`LlmRecordExtractor:58` numbers excerpts `"n" to i` — **from zero** — while `ThreadTopicDistiller:51`
+uses `i + 1`. The codebase is inconsistent, and a model reading a numbered list naturally treats it
+as 1-based, citing the excerpt BEFORE the real one. The prompt now states the numbering explicitly.
+
+Measured on AXA's 86-chunk page, re-extracted cold:
+
+| | |
+|---|---|
+| correct citations | **6 of 7** |
+| quote real but wrong chunk | 1 of 7 |
+| fabricated | **0** |
+
+Better, not fixed. And prompting cannot finish the job: the chunk id is the one field the model
+cannot verify for itself — it is a claim about the harness, not about the text. The robust fix is to
+resolve the chunk by SEARCHING for the verbatim quote rather than trusting the index, which is
+platform work in `LlmRecordExtractor.parse`.
+
+Until then the realm states the precedence where readers see it: **`quote` is the evidence,
+`sourceChunkId` is a pointer**, and when they disagree the quote is right. `scripts/audit.py`
+verifies quotes against the source and reports a mismatched id separately from a fabrication,
+because they are different severities: one is a filing error, the other is a lie.
