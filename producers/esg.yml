@@ -111,3 +111,14 @@
          footprint was 641,081 tonnes" reports ONE combined location-based figure of 641,081, not a
          Scope 2 figure. Read the scope from the scope words, never from the method words.
       7. Answer only for the ids listed. Skip anything else the text happens to contain.
+
+  # PERSIST. Without this the producer is transient: every traversal re-runs the model, nothing is
+  # written, and MATCH (o:EsgObservation) in raw Neo4j returns zero however many observations a view
+  # just displayed. That is what the header comment above claimed was already happening — the
+  # comment was copied from a realm that declares this line, and the line was not.
+  #
+  # With it, the first traversal of a document extracts and commits; repeats are graph hits at zero
+  # model cost until the document's text changes, at which point the backend DETACH DELETEs the rows
+  # whose input hash is no longer current and writes the new ones. That replacement is also what
+  # stops re-extraction from piling up duplicate rows.
+  cache: { kind: graph }
