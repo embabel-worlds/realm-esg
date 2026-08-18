@@ -67,8 +67,26 @@ regression in extraction. `EsgProfile` and `EsgExtract` now return one row per d
 a window that found something, and report `windowsDisclosing/windowsRead` so a `3/7` is visible.
 AXA: 98 rows → 14.
 
-## Open defect
+## The AXA "anchoring bug" was a cost gate — fixed
 
-- **`EsgExtract` anchoring is unreliable for AXA.** `WHERE d.uri CONTAINS $domain` materializes for
-  schott.com and ricoh.co.uk but returned 0 for axa.com; an exact-URI anchor works. Not understood,
-  and worth understanding — it is the difference between a company being read and silently skipped.
+Not anchoring at all. `VcCostGate` refuses a query whose **estimated cold model calls** exceed
+`maxColdModelCalls`, and AXA's two pages (280 + 86 chunks, ~7 windows) crossed it together.
+Bisected:
+
+| case | result |
+|---|---|
+| ricoh.co.uk cold — 2 docs, 19 chunks | 14 rows |
+| axa, either page alone, cold | 28 / 42 rows |
+| axa, **both pages cold at once** | refused, 0 rows |
+| axa, once cached | 14 rows |
+
+Load-dependent, therefore intermittent: the same view worked or didn't depending on what happened
+to be cached. And it failed as "the request was too broad" with no warning and no producer log
+line — a company silently skipped while the run reported success.
+
+`EsgExtract` now carries the documented opt-in `{ai: {materialize: true}}`. The gate is right for a
+passive read and wrong for this view: reading documents is its whole purpose, and it is what the
+Populate button calls, so the cost is exactly what was asked for. No other view carries it —
+opening a scorecard must not be able to start an unbounded extraction run.
+
+Verified on the case that failed: both AXA pages cold, 366 chunks, 14 rows, `SUCCEEDED`.
