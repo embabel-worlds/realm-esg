@@ -142,29 +142,31 @@
     ORDER BY status, dp.name
 
 # ── Comparison — ALWAYS with its n ────────────────────────────────────────────────────────────
-- name: EsgDisclosureComparison
+- name: EsgDisclosureRate
   description: >-
-    Disclosure rate for one datapoint across every organization assessed, grouped by industry.
-    The cohort is whatever has been assessed and is NOT a random sample of any market — companies
-    enter it because somebody asked about them. `companiesAssessed` is returned as a column rather
-    than a caveat for exactly that reason: the rate is meaningless without it.
+    How much of one organization's assessed material is actual disclosure rather than silence.
+    Run it per company and set the results side by side to compare — and state how many companies
+    were asked, because the cohort is whatever has been assessed, never a market.
   params:
-    datapointId:
+    domain:
       type: string
-      default: ghg_scope1
-      description: "Which datapoint to compare, e.g. 'ghg_scope1'."
+      description: "The organization's domain, e.g. 'acme.com'."
   cypher: |
-    // Cross-company, so it cannot anchor on one uri — it reads only what is ALREADY extracted and
-    // never triggers a fetch. Companies appear here once they have been read; the cohort is
-    // whatever has been assessed, which is why the count is a column and not a footnote.
-    MATCH (d:Document)-[:HAS_OBSERVATIONS]->(o:EsgObservation {datapointId: $datapointId})
-    WHERE d.uri CONTAINS '.'
-    WITH replace(split(replace(replace(d.uri, 'https://', ''), 'http://', ''), '/')[0], 'www.', '') AS company,
-         count(o) AS observations,
-         count(CASE WHEN o.value <> 'not_disclosed' THEN 1 END) AS disclosing
-    RETURN company, observations, disclosing,
-           round(100.0 * disclosing / observations) AS pctDisclosing
-    ORDER BY company
+    // Anchored on ONE company, deliberately. A cross-company aggregate is not expressible here:
+    // EsgObservation is a VIRTUAL label, and the engine refuses to bind one except through a
+    // registered relationship from a bound anchor — "virtual label 'EsgObservation' is not reached
+    // via a registered relationship from a bound anchor". So there is no query that sweeps every
+    // company's observations at once, and pretending otherwise would return a confident number
+    // over whichever anchors happened to resolve.
+    //
+    // To compare companies, call this once per domain and put the results side by side — with the
+    // count of companies asked, because the cohort is whatever has been assessed, never a market.
+    MATCH (d:Document)-[:HAS_OBSERVATIONS]->(o:EsgObservation)
+    WHERE d.uri CONTAINS $domain
+    RETURN $domain AS company,
+           count(o) AS observations,
+           count(CASE WHEN o.value <> 'not_disclosed' THEN 1 END) AS disclosing,
+           round(100.0 * count(CASE WHEN o.value <> 'not_disclosed' THEN 1 END) / count(o)) AS pctDisclosing
 
 # ── What can this realm see at all, and what does each thing feed? ───────────────────────────
 - name: EsgDatapointCatalogue

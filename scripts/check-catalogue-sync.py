@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Fail the build when the catalogue and its three mirrors drift apart.
 
-reference/datapoints.yml is the source of truth. Three places copy it and CANNOT read it at
+reference/04-datapoints.yml is the source of truth. Three places copy it and CANNOT read it at
 runtime:
 
   1. producers/esg.yml       — the extraction prompt inlines every datapoint id and question,
@@ -22,7 +22,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 load = lambda p: yaml.safe_load((ROOT / p).read_text())
 errs = []
 
-datapoints = load("reference/datapoints.yml")
+datapoints = load("reference/04-datapoints.yml")
 ids = [e["data"]["id"] for e in datapoints]
 if len(ids) != len(set(ids)):
     errs.append(f"duplicate datapoint ids: {[i for i in ids if ids.count(i) > 1]}")
@@ -45,8 +45,8 @@ if set(allowed) != set(ids):
     errs.append(f"types/esg.yml datapointId oneOf != catalogue. only-in-oneOf={set(allowed)-set(ids)} only-in-catalogue={set(ids)-set(allowed)}")
 
 # 3 — no SATISFIES may dangle, and every framework referenced must exist
-reqs = {e["data"]["id"]: e for e in load("reference/requirements-core.yml")}
-frameworks = {e["data"]["id"] for e in load("reference/frameworks.yml")}
+reqs = {e["data"]["id"]: e for e in load("reference/02-requirements-core.yml")}
+frameworks = {e["data"]["id"] for e in load("reference/01-frameworks.yml")}
 for e in datapoints:
     for rel in e.get("relations", []):
         if rel["to"]["id"] not in reqs:
@@ -56,12 +56,12 @@ for rid, r in reqs.items():
         if rel["to"]["id"] not in frameworks:
             errs.append(f"requirement '{rid}' IN_FRAMEWORK unknown framework '{rel['to']['id']}'")
 
-# 4 — the shipped app catalogue must match reference/datapoints.yml
+# 4 — the shipped app catalogue must match reference/04-datapoints.yml
 import json
 app_cat = json.loads((ROOT / "apps/esg-catalogue.json").read_text())
 app_ids = [d["id"] for d in app_cat["datapoints"]]
 if set(app_ids) != set(ids):
-    errs.append(f"apps/esg-catalogue.json != reference/datapoints.yml. "
+    errs.append(f"apps/esg-catalogue.json != reference/04-datapoints.yml. "
                 f"only-in-app={set(app_ids)-set(ids)} only-in-catalogue={set(ids)-set(app_ids)}")
 for d in app_cat["datapoints"]:
     src = next((e["data"] for e in datapoints if e["data"]["id"] == d["id"]), None)

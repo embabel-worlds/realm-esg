@@ -3,8 +3,14 @@
 # consumer needs. Adding a framework is catalogue data — a new file of requirements plus
 # SATISFIES edges from existing observations — never a re-extraction.
 #
-# Seeded idempotently (identity MERGE on `id`) on world load. Requirements reference these by id,
-# so this file must load first.
+# Seeded idempotently (identity MERGE on `id`) on world load.
+#
+# THE NUMERIC PREFIXES ARE LOAD ORDER AND THEY MATTER. A reference relation is only written when
+# its TARGET already exists, and reference files load in filename order. Named plainly, `datapoints`
+# sorted before `requirements`, so every SATISFIES pointed at a requirement that did not exist yet
+# and every edge was dropped — silently, with no seeding error: 7 frameworks, 130 requirements and
+# 13 datapoints all present, and not one relationship between them. Frameworks first, then the
+# requirements that reference them, then the datapoints that reference those.
 
 - type: EsgFramework
   data:

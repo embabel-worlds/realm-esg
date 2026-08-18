@@ -4,7 +4,7 @@
 The export itself is NEVER committed (see .gitignore). This reads it from a local path and emits
 two artefacts we DO version:
 
-  reference/requirements-vendor-baseline.yml   their 97 metrics as EsgRequirements, so our
+  reference/03-requirements-vendor-baseline.yml   their 97 metrics as EsgRequirements, so our
                                                observations can be projected back into their
                                                format for a row-for-row diff
   docs/BASELINE_DEFECTS.md                     the defect analysis, regenerated from the data so
@@ -75,7 +75,7 @@ for ab, m in sorted(metrics.items()):
             f"           title: \"{title}\", dimension: {m['dimension']}, category: \"{m['category']}\",",
             f"           baselineKind: {kind(m)}, baselineRows: {m['n']}, baselineDistinctAnswers: {len(m['answers'])} }}",
             f"  relations: [{{ predicate: IN_FRAMEWORK, to: {{ type: EsgFramework, id: vendor-baseline }} }}]"]
-(ROOT / "reference/requirements-vendor-baseline.yml").write_text("\n".join(out) + "\n")
+(ROOT / "reference/03-requirements-vendor-baseline.yml").write_text("\n".join(out) + "\n")
 
 # ── the defect analysis, regenerated so every figure is checkable ────────────────────────────
 yes_only   = [a for a, m in metrics.items() if set(m["answers"]) <= {"Yes"}]
@@ -153,6 +153,6 @@ catalogue and nothing of class `registry` is scraped.
 """
 (ROOT / "docs/BASELINE_DEFECTS.md").write_text(md)
 
-print(f"reference/requirements-vendor-baseline.yml — {len(metrics)} requirements")
+print(f"reference/03-requirements-vendor-baseline.yml — {len(metrics)} requirements")
 print(f"docs/BASELINE_DEFECTS.md — {len(md.splitlines())} lines")
 print(f"mapped to our datapoints: {len(ANSWERS)}/{len(metrics)} (deliberately partial)")

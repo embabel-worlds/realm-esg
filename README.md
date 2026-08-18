@@ -47,10 +47,10 @@ an answer to the form its own question demands.
 
 | Path | What |
 |---|---|
-| `reference/frameworks.yml` | the seven frameworks this realm can speak |
-| `reference/requirements-core.yml` | what each framework asks, in its own language |
-| `reference/datapoints.yml` | **the atoms** — what we observe, and which requirements each answers |
-| `reference/requirements-vendor-baseline.yml` | the benchmark questionnaire as a dialect, for a row-for-row diff (generated) |
+| `reference/01-frameworks.yml` | the seven frameworks this realm can speak |
+| `reference/02-requirements-core.yml` | what each framework asks, in its own language |
+| `reference/04-datapoints.yml` | **the atoms** — what we observe, and which requirements each answers |
+| `reference/03-requirements-vendor-baseline.yml` | the benchmark questionnaire as a dialect, for a row-for-row diff (generated) |
 | `types/esg.yml` | graph types, the `HAS_OBSERVATIONS` join, and text-to-Cypher examples |
 | `producers/esg.yml` | the `kind: extract` producer and its prompt |
 | `scripts/populate.py` | batch spider → corpus |
