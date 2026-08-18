@@ -251,10 +251,14 @@
     sourceClass: self-disclosure
     staleAfter: 365d
     question: >-
-      Does the published material state the gender composition of the board or governing body?
-      Give the percentage as published, or the counts if only counts are given. Naming the board
-      members is not a stated composition — do not count names to derive a figure. If no
-      composition is stated, answer not_disclosed.
+      Does the published material state the gender composition of the BOARD or governing body
+      specifically? Give the percentage as published, or the counts if only counts are given.
+      THE BODY MATTERS AS MUCH AS THE NUMBER. A figure for senior executives, a leadership
+      network, management, the workforce, or "our people" is NOT the governing body — answer
+      not_disclosed rather than reporting it here, however clearly the percentage is stated.
+      A 250-member leadership network is not a board. Naming the board members is not a stated
+      composition either — do not count names to derive a figure. If the composition of the
+      governing body itself is not stated, answer not_disclosed.
   relations:
     - { predicate: SATISFIES, to: { type: EsgRequirement, id: esrs-s1-9 } }
     - { predicate: SATISFIES, to: { type: EsgRequirement, id: gri-405-1 } }

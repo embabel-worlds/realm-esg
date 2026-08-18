@@ -61,7 +61,7 @@
         - id: safety_incident_rate  (quantity, unit rate, period required)
           Does the published material report a work-related injury or accident rate? Give the figure, the rate basis it is expressed on (per million hours worked, per 100 employees, …) and the period, exactly as published. A statement that safety is important is NOT a rate — that is not_disclosed for this datapoint.
         - id: board_gender_diversity  (quantity, unit percent)
-          Does the published material state the gender composition of the board or governing body? Give the percentage as published, or the counts if only counts are given. Naming the board members is not a stated composition — do not count names to derive a figure. If no composition is stated, answer not_disclosed.
+          Does the published material state the gender composition of the BOARD or governing body specifically? Give the percentage as published, or the counts if only counts are given. THE BODY MATTERS AS MUCH AS THE NUMBER. A figure for senior executives, a leadership network, management, the workforce, or "our people" is NOT the governing body — answer not_disclosed rather than reporting it here, however clearly the percentage is stated. A 250-member leadership network is not a board. Naming the board members is not a stated composition either — do not count names to derive a figure. If the composition of the governing body itself is not stated, answer not_disclosed.
         - id: board_sustainability_oversight  (boolean, one of: yes, no, not_disclosed)
           Does the published material state that the board or a board committee has responsibility for sustainability or climate matters? Answer yes ONLY where the material says so — a sustainability page with no mention of who governs it is not_disclosed, and a general statement that the company cares about the environment is not board oversight.
         - id: business_conduct_policy  (boolean, one of: yes, no, not_disclosed)
@@ -122,7 +122,13 @@
          published reduction target and must be recorded as one, quoted as written. Do not hold out
          for a percentage and a baseline year: the datapoint asks what the material SAYS, and
          answering not_disclosed because the figures are missing loses a real disclosure.
-      8. Answer only for the ids listed. Skip anything else the text happens to contain.
+      8. THE SUBJECT MUST MATCH THE DATAPOINT, not merely the topic. A percentage about senior
+         executives is not a percentage about the board; a target is not a measurement; an
+         electricity figure is not a total-energy figure unless the text says so. When the number
+         is clear but the population is different from the one asked about, the answer is
+         not_disclosed — a right number about the wrong thing is a wrong answer that reads as a
+         right one, and it is the hardest kind for a reader to catch.
+      9. Answer only for the ids listed. Skip anything else the text happens to contain.
 
   # PERSIST. Without this the producer is transient: every traversal re-runs the model, nothing is
   # written, and MATCH (o:EsgObservation) in raw Neo4j returns zero however many observations a view
