@@ -59,19 +59,13 @@
       type: string
       description: "The organization's domain, e.g. 'acme.com'."
   cypher: |
-    MATCH (d:Document) WHERE 'esg' IN d.tags
-    // Domain WITHOUT touching Organization. Ingestion does create
-    // (d:Document)-[:PUBLISHED_BY]->(:Organization), but those org nodes are not reachable from the
-    // user, so the scope rewriter drops the hop and the whole query silently returns nothing —
-    // measured: 16 documents visible alone, 0 through the hop. The domain tag written at ingestion
-    // is authoritative; the URI host is the fallback for anything ingested before that.
-    WITH d, [t IN d.tags WHERE t STARTS WITH 'domain:'][0] AS dt
-    WITH d, coalesce(
-           CASE WHEN dt IS NULL THEN null ELSE substring(dt, 7) END,
-           replace(split(replace(replace(d.uri, 'https://', ''), 'http://', ''), '/')[0], 'www.', '')
-         ) AS domain
-    WITH d WHERE domain = $domain
+    // ANCHOR THE JOIN ON ITS KEY FIELD. HAS_OBSERVATIONS is a virtual join whose
+    // anchorKeyProperty is `uri`; the planner materializes it only when it finds a predicate on
+    // that key IN THE PATTERN. A domain computed through a WITH chain is invisible to it, so the
+    // join yields nothing in ~200ms with zero model calls and the engine reports "too broad".
+    // Measured: WITH-chain 0 rows / 0 calls; `WHERE d.uri CONTAINS $domain` 13 rows / 1 call.
     MATCH (d:Document)-[:HAS_OBSERVATIONS]->(o:EsgObservation)
+    WHERE d.uri CONTAINS $domain
     RETURN d.uri AS document, o.datapointId AS datapoint, o.value AS value,
            o.unit AS unit, o.period AS period, o.quote AS quote, o.sourceChunkId AS chunkId
 
@@ -86,26 +80,20 @@
       type: string
       description: "The organization's domain as ingested, e.g. 'acme.com'."
   cypher: |
-    MATCH (d:Document) WHERE 'esg' IN d.tags
-    // Domain WITHOUT touching Organization. Ingestion does create
-    // (d:Document)-[:PUBLISHED_BY]->(:Organization), but those org nodes are not reachable from the
-    // user, so the scope rewriter drops the hop and the whole query silently returns nothing —
-    // measured: 16 documents visible alone, 0 through the hop. The domain tag written at ingestion
-    // is authoritative; the URI host is the fallback for anything ingested before that.
-    WITH d, [t IN d.tags WHERE t STARTS WITH 'domain:'][0] AS dt
-    WITH d, coalesce(
-           CASE WHEN dt IS NULL THEN null ELSE substring(dt, 7) END,
-           replace(split(replace(replace(d.uri, 'https://', ''), 'http://', ''), '/')[0], 'www.', '')
-         ) AS domain
-    WITH d WHERE domain = $domain
+    // ANCHOR THE JOIN ON ITS KEY FIELD. HAS_OBSERVATIONS is a virtual join whose
+    // anchorKeyProperty is `uri`; the planner materializes it only when it finds a predicate on
+    // that key IN THE PATTERN. A domain computed through a WITH chain is invisible to it, so the
+    // join yields nothing in ~200ms with zero model calls and the engine reports "too broad".
+    // Measured: WITH-chain 0 rows / 0 calls; `WHERE d.uri CONTAINS $domain` 13 rows / 1 call.
     MATCH (d:Document)-[:HAS_OBSERVATIONS]->(o:EsgObservation)
+    WHERE d.uri CONTAINS $domain
     // OPTIONAL on purpose: an unseeded catalogue must not erase real observations. The id is
     // always present on the observation, and the apps carry the shipped catalogue to name it.
     OPTIONAL MATCH (dp:EsgDatapoint {id: o.datapointId})
-    RETURN coalesce(dp.name, o.datapointId) AS datapoint, dp.answerType AS type, o.value AS value, o.unit AS unit,
-           o.period AS period, o.confidence AS confidence, o.quote AS evidence,
+    RETURN coalesce(dp.name, o.datapointId) AS datapoint, dp.answerType AS type, o.value AS value,
+           o.unit AS unit, o.period AS period, o.confidence AS confidence, o.quote AS evidence,
            d.uri AS sourceUrl, o.sourceChunkId AS chunkId
-    ORDER BY dp.answerType, dp.name
+    ORDER BY datapoint
 
 # ── The same observations, in one framework's language ───────────────────────────────────────
 - name: EsgFrameworkReport
@@ -166,14 +154,12 @@
       default: ghg_scope1
       description: "Which datapoint to compare, e.g. 'ghg_scope1'."
   cypher: |
-    MATCH (d:Document) WHERE 'esg' IN d.tags
-    WITH d, [t IN d.tags WHERE t STARTS WITH 'domain:'][0] AS dt
-    WITH d, coalesce(
-           CASE WHEN dt IS NULL THEN null ELSE substring(dt, 7) END,
-           replace(split(replace(replace(d.uri, 'https://', ''), 'http://', ''), '/')[0], 'www.', '')
-         ) AS domain
+    // Cross-company, so it cannot anchor on one uri — it reads only what is ALREADY extracted and
+    // never triggers a fetch. Companies appear here once they have been read; the cohort is
+    // whatever has been assessed, which is why the count is a column and not a footnote.
     MATCH (d:Document)-[:HAS_OBSERVATIONS]->(o:EsgObservation {datapointId: $datapointId})
-    WITH domain AS company,
+    WHERE d.uri CONTAINS '.'
+    WITH replace(split(replace(replace(d.uri, 'https://', ''), 'http://', ''), '/')[0], 'www.', '') AS company,
          count(o) AS observations,
          count(CASE WHEN o.value <> 'not_disclosed' THEN 1 END) AS disclosing
     RETURN company, observations, disclosing,
