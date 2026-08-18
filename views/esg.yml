@@ -59,15 +59,25 @@
       type: string
       description: "The organization's domain, e.g. 'acme.com'."
   cypher: |
-    // ANCHOR THE JOIN ON ITS KEY FIELD. HAS_OBSERVATIONS is a virtual join whose
-    // anchorKeyProperty is `uri`; the planner materializes it only when it finds a predicate on
-    // that key IN THE PATTERN. A domain computed through a WITH chain is invisible to it, so the
-    // join yields nothing in ~200ms with zero model calls and the engine reports "too broad".
-    // Measured: WITH-chain 0 rows / 0 calls; `WHERE d.uri CONTAINS $domain` 13 rows / 1 call.
+    // ANCHOR THE JOIN ON ITS KEY FIELD (`uri`, the producer's anchorKeyProperty): the planner
+    // materializes a virtual join only when it finds a predicate on that key in the pattern.
     MATCH (d:Document)-[:HAS_OBSERVATIONS]->(o:EsgObservation)
     WHERE d.uri CONTAINS $domain
-    RETURN d.uri AS document, o.datapointId AS datapoint, o.value AS value,
-           o.unit AS unit, o.period AS period, o.quote AS quote, o.sourceChunkId AS chunkId
+    // ONE ANSWER PER DATAPOINT. A long document is extracted in WINDOWS and every window answers
+    // every datapoint — AXA's 280-chunk page makes five, so it holds 5 x 14 = 70 rows, most of them
+    // the not_disclosed of a window that simply did not contain the relevant text. Returned raw,
+    // that makes a well-extracted company look mostly silent and wrecks any rate computed over
+    // rows. Prefer a window that actually found something, and report how many did.
+    WITH o.datapointId AS dpId, collect(o) AS obs
+    WITH dpId, obs, [x IN obs WHERE x.value <> 'not_disclosed'] AS said
+    WITH dpId,
+         CASE WHEN size(said) > 0 THEN said[0] ELSE obs[0] END AS o,
+         size(said) AS windowsDisclosing,
+         size(obs) AS windowsRead
+    RETURN o.docUri AS document, dpId AS datapoint, o.value AS value,
+           o.unit AS unit, o.period AS period, o.quote AS quote, o.sourceChunkId AS chunkId,
+           windowsDisclosing, windowsRead
+    ORDER BY datapoint
 
 # ── One company, everything we read ──────────────────────────────────────────────────────────
 - name: EsgProfile
@@ -80,19 +90,26 @@
       type: string
       description: "The organization's domain as ingested, e.g. 'acme.com'."
   cypher: |
-    // ANCHOR THE JOIN ON ITS KEY FIELD. HAS_OBSERVATIONS is a virtual join whose
-    // anchorKeyProperty is `uri`; the planner materializes it only when it finds a predicate on
-    // that key IN THE PATTERN. A domain computed through a WITH chain is invisible to it, so the
-    // join yields nothing in ~200ms with zero model calls and the engine reports "too broad".
-    // Measured: WITH-chain 0 rows / 0 calls; `WHERE d.uri CONTAINS $domain` 13 rows / 1 call.
+    // ANCHOR THE JOIN ON ITS KEY FIELD (`uri`, the producer's anchorKeyProperty): the planner
+    // materializes a virtual join only when it finds a predicate on that key in the pattern.
     MATCH (d:Document)-[:HAS_OBSERVATIONS]->(o:EsgObservation)
     WHERE d.uri CONTAINS $domain
-    // OPTIONAL on purpose: an unseeded catalogue must not erase real observations. The id is
-    // always present on the observation, and the apps carry the shipped catalogue to name it.
-    OPTIONAL MATCH (dp:EsgDatapoint {id: o.datapointId})
-    RETURN coalesce(dp.name, o.datapointId) AS datapoint, dp.answerType AS type, o.value AS value,
+    // ONE ANSWER PER DATAPOINT. A long document is extracted in WINDOWS and every window answers
+    // every datapoint — AXA's 280-chunk page makes five, so it holds 5 x 14 = 70 rows, most of them
+    // the not_disclosed of a window that simply did not contain the relevant text. Returned raw,
+    // that makes a well-extracted company look mostly silent and wrecks any rate computed over
+    // rows. Prefer a window that actually found something, and report how many did.
+    WITH o.datapointId AS dpId, collect(o) AS obs
+    WITH dpId, obs, [x IN obs WHERE x.value <> 'not_disclosed'] AS said
+    WITH dpId,
+         CASE WHEN size(said) > 0 THEN said[0] ELSE obs[0] END AS o,
+         size(said) AS windowsDisclosing,
+         size(obs) AS windowsRead
+    OPTIONAL MATCH (dp:EsgDatapoint {id: dpId})
+    RETURN coalesce(dp.name, dpId) AS datapoint, dp.answerType AS type, o.value AS value,
            o.unit AS unit, o.period AS period, o.confidence AS confidence, o.quote AS evidence,
-           d.uri AS sourceUrl, o.sourceChunkId AS chunkId
+           o.docUri AS sourceUrl, o.sourceChunkId AS chunkId,
+           windowsDisclosing, windowsRead
     ORDER BY datapoint
 
 # ── The same observations, in one framework's language ───────────────────────────────────────
