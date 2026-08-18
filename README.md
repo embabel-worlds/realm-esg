@@ -148,10 +148,20 @@ Honest about what is and is not done:
 - **13 datapoints, not 97.** A slice where several frameworks genuinely overlap — climate,
   energy, water, safety, diversity, governance. Only 11 of the benchmark's 97 metrics map onto
   them, so the diff is partial and says so.
-- **Verified against a live appliance:** ingestion, the `PUBLISHED_BY` join, and every view's
-  Cypher. A real run held 20 documents and 1,891 chunks across two domains.
-- **Not yet verified:** extraction itself. No `EsgObservation` has ever been produced, so the
-  typed-answer discipline — the entire premise — is still unproven.
+- **Verified against a live appliance, end to end.** All seven views invoked through
+  `/api/v1/views/{name}/invoke` with the apps' exact `{args:{...}}` contract; all six app assets
+  served; the populate write path exercised with its real payloads (crawl → policy exclusions →
+  `documents/url`). Extraction produces typed, cited observations — SCHOTT returns Scope 2 of
+  641,081 tCO₂e and 100% renewable, with the sentence each was read from.
+- **`EsgFrameworkReport` returns EMPTY and is expected to.** The reference seeder writes catalogue
+  nodes but not their relations, so there is no `SATISFIES`/`IN_FRAMEWORK` edge to traverse. The
+  scorecard projects frameworks from the shipped catalogue instead; the view is kept because it is
+  the right query and will work the moment relations are seeded.
+- **A cross-company aggregate is not expressible.** `EsgObservation` is a virtual label and cannot
+  be bound except through a registered relationship from a bound anchor, so `EsgDisclosureRate`
+  answers for one domain at a time.
+- **Still owed:** the combined Scope 1+2 defect in `docs/HEAD_TO_HEAD.md`, and verification of all
+  33 framework codes.
 - **No skill yet**, so population and querying are app- and script-driven rather than available
   from chat.
 - **No versioning.** Observations are replaced when a document changes, not superseded. "Who
