@@ -92,16 +92,29 @@
 <script>
 // Presentation only. Every read is a NAMED view the realm defines and the host executes; the
 // browser never composes a query and never sends Cypher.
-const view = async (name, params) => {
+const view = async (name, args) => {
   const r = await fetch(`/api/v1/views/${encodeURIComponent(name)}/invoke`, {
-    method: 'POST', headers: {'Content-Type': 'application/json'},
-    credentials: 'same-origin', body: JSON.stringify(params || {})
+    method: 'POST', headers: {'Content-Type': 'application/json'}, credentials: 'same-origin',
+    // Parameters go under `args`. Posting them bare reads as NO arguments, and the view then
+    // refuses with "param 'domain' has no default and must be supplied".
+    body: JSON.stringify({args: args || {}})
   });
-  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
-  const b = await r.json();
-  return b.rows || (Array.isArray(b) ? b : []);
+  const b = await r.json().catch(() => null);
+  if (!r.ok) throw new Error(b?.error?.message || b?.error || `${r.status} ${r.statusText}`);
+  // A view reports failure inside a 200 as status FAILED; rows arrive as `data`, not `rows`.
+  if (b?.status === 'FAILED') throw new Error(b?.error?.message || 'view failed');
+  return b?.data ?? [];
 };
 const el = id => document.getElementById(id);
+// The realm ships its own catalogue, so an observation can always be named and typed even when the
+// reference data has never been seeded into the graph.
+let CAT = {};
+const loadCatalogue = async () => {
+  try {
+    const c = await (await fetch('esg-catalogue.json', {credentials: 'same-origin'})).json();
+    CAT = Object.fromEntries((c.datapoints || []).map(d => [d.id, d]));
+  } catch (e) { /* falls back to the raw id */ }
+};
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const paint = (tbl, head, rows) => {
   const b = el(tbl).querySelector('tbody');
@@ -139,8 +152,11 @@ async function render() {
       // rather than the extraction the user came for.
       try { await view('EsgExtract', {domain}); } catch (e) { /* surfaced by the render below */ }
       paint('main', [
-        {label: 'Datapoint', cell: r => esc(r.datapoint)},
-        {label: 'Type',      cell: r => `<span class="pill${r.type === 'quantity' ? ' q' : ''}">${esc(r.type)}</span>`},
+        {label: 'Datapoint', cell: r => esc(CAT[r.datapoint]?.name || r.datapoint)},
+        {label: 'Type',      cell: r => {
+            const t = r.type || CAT[r.datapoint]?.answerType || '';
+            return t ? `<span class="pill${t === 'quantity' ? ' q' : ''}">${esc(t)}</span>` : '';
+        }},
         {label: 'Value',     cell: valueCell},
         {label: 'Evidence',  cell: r => `<div class="quote">${esc(r.evidence || '')}</div>`
             + (r.sourceUrl ? `<a href="${esc(r.sourceUrl)}" target="_blank" rel="noopener noreferrer">source</a>` : '')},
@@ -156,6 +172,7 @@ async function render() {
 }
 
 (async () => {
+  await loadCatalogue();
   const sel = el('domain');
   try {
     const rows = await view('EsgCoverage');

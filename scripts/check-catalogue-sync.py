@@ -56,7 +56,19 @@ for rid, r in reqs.items():
         if rel["to"]["id"] not in frameworks:
             errs.append(f"requirement '{rid}' IN_FRAMEWORK unknown framework '{rel['to']['id']}'")
 
-# 4 — an unverified framework code must never be presented as authoritative
+# 4 — the shipped app catalogue must match reference/datapoints.yml
+import json
+app_cat = json.loads((ROOT / "apps/esg-catalogue.json").read_text())
+app_ids = [d["id"] for d in app_cat["datapoints"]]
+if set(app_ids) != set(ids):
+    errs.append(f"apps/esg-catalogue.json != reference/datapoints.yml. "
+                f"only-in-app={set(app_ids)-set(ids)} only-in-catalogue={set(ids)-set(app_ids)}")
+for d in app_cat["datapoints"]:
+    src = next((e["data"] for e in datapoints if e["data"]["id"] == d["id"]), None)
+    if src and (d["name"] != src["name"] or d["answerType"] != src["answerType"]):
+        errs.append(f"apps/esg-catalogue.json '{d['id']}' name/answerType differs from the catalogue")
+
+# 5 — an unverified framework code must never be presented as authoritative
 unverified = [rid for rid, r in reqs.items() if not r["data"].get("verified", False)]
 orphans = [i for i in ids if not any(r["to"]["id"] in reqs for r in
                                      next(e for e in datapoints if e["data"]["id"] == i).get("relations", []))]

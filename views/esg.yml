@@ -75,8 +75,10 @@
     MATCH (d:Document)-[:PUBLISHED_BY]->(org:Organization)
     WHERE org.domain = $domain OR org.name = $domain
     MATCH (d:Document)-[:HAS_OBSERVATIONS]->(o:EsgObservation)
-    MATCH (dp:EsgDatapoint {id: o.datapointId})
-    RETURN dp.name AS datapoint, dp.answerType AS type, o.value AS value, o.unit AS unit,
+    // OPTIONAL on purpose: an unseeded catalogue must not erase real observations. The id is
+    // always present on the observation, and the apps carry the shipped catalogue to name it.
+    OPTIONAL MATCH (dp:EsgDatapoint {id: o.datapointId})
+    RETURN coalesce(dp.name, o.datapointId) AS datapoint, dp.answerType AS type, o.value AS value, o.unit AS unit,
            o.period AS period, o.confidence AS confidence, o.quote AS evidence,
            d.uri AS sourceUrl, o.sourceChunkId AS chunkId
     ORDER BY dp.answerType, dp.name

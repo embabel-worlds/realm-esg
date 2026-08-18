@@ -1,0 +1,167 @@
+{
+ "_comment": [
+  "GENERATED from reference/datapoints.yml \u2014 do not hand-edit; scripts/check-catalogue-sync.py fails if they drift.",
+  "Shipped so the apps can name and type an observation WITHOUT the reference data having been seeded into the graph. Seeding remains necessary for graph-side queries (chat, kg_query, the framework views); it is no longer necessary for the apps to display what was extracted."
+ ],
+ "datapoints": [
+  {
+   "id": "ghg_scope1",
+   "name": "Scope 1 GHG emissions",
+   "answerType": "quantity",
+   "unit": "tCO2e",
+   "sourceClass": "self-disclosure",
+   "requirements": [
+    "Scope 1",
+    "E1-6",
+    "305-1",
+    "S2 Metrics",
+    "GHG Emissions (topic)",
+    "TBD"
+   ]
+  },
+  {
+   "id": "ghg_scope2_location",
+   "name": "Scope 2 GHG emissions (location-based)",
+   "answerType": "quantity",
+   "unit": "tCO2e",
+   "sourceClass": "self-disclosure",
+   "requirements": [
+    "Scope 2 (location-based)",
+    "E1-6",
+    "305-2",
+    "S2 Metrics"
+   ]
+  },
+  {
+   "id": "ghg_scope2_market",
+   "name": "Scope 2 GHG emissions (market-based)",
+   "answerType": "quantity",
+   "unit": "tCO2e",
+   "sourceClass": "self-disclosure",
+   "requirements": [
+    "Scope 2 (market-based)",
+    "E1-6",
+    "305-2"
+   ]
+  },
+  {
+   "id": "ghg_scope3",
+   "name": "Scope 3 GHG emissions",
+   "answerType": "quantity",
+   "unit": "tCO2e",
+   "sourceClass": "self-disclosure",
+   "requirements": [
+    "Scope 3",
+    "E1-6",
+    "305-3",
+    "S2 Metrics"
+   ]
+  },
+  {
+   "id": "ghg_reduction_target",
+   "name": "GHG emissions reduction target",
+   "answerType": "narrative",
+   "unit": null,
+   "sourceClass": "self-disclosure",
+   "requirements": [
+    "E1-4",
+    "305-5",
+    "S2 Targets"
+   ]
+  },
+  {
+   "id": "climate_transition_plan",
+   "name": "Climate transition plan",
+   "answerType": "narrative",
+   "unit": null,
+   "sourceClass": "self-disclosure",
+   "requirements": [
+    "E1-1",
+    "S2 Strategy"
+   ]
+  },
+  {
+   "id": "energy_consumption_total",
+   "name": "Total energy consumption",
+   "answerType": "quantity",
+   "unit": "MWh",
+   "sourceClass": "self-disclosure",
+   "requirements": [
+    "E1-5",
+    "302-1",
+    "Energy Management (topic)",
+    "TBD"
+   ]
+  },
+  {
+   "id": "renewable_energy_share",
+   "name": "Renewable share of energy consumed",
+   "answerType": "quantity",
+   "unit": "percent",
+   "sourceClass": "self-disclosure",
+   "requirements": [
+    "E1-5",
+    "302-1",
+    "Energy Management (topic)"
+   ]
+  },
+  {
+   "id": "water_withdrawal_total",
+   "name": "Total water withdrawal",
+   "answerType": "quantity",
+   "unit": "m3",
+   "sourceClass": "self-disclosure",
+   "requirements": [
+    "E3-4",
+    "303-3",
+    "Water Management (topic)",
+    "TBD"
+   ]
+  },
+  {
+   "id": "safety_incident_rate",
+   "name": "Work-related injury rate",
+   "answerType": "quantity",
+   "unit": "rate",
+   "sourceClass": "self-disclosure",
+   "requirements": [
+    "S1-14",
+    "403-9",
+    "Employee Health & Safety (topic)"
+   ]
+  },
+  {
+   "id": "board_gender_diversity",
+   "name": "Gender diversity of the governing body",
+   "answerType": "quantity",
+   "unit": "percent",
+   "sourceClass": "self-disclosure",
+   "requirements": [
+    "S1-9",
+    "405-1"
+   ]
+  },
+  {
+   "id": "board_sustainability_oversight",
+   "name": "Board oversight of sustainability",
+   "answerType": "boolean",
+   "unit": null,
+   "sourceClass": "self-disclosure",
+   "requirements": [
+    "GOV-1",
+    "2-12",
+    "S1 Governance"
+   ]
+  },
+  {
+   "id": "business_conduct_policy",
+   "name": "Published business conduct or ethics policy",
+   "answerType": "boolean",
+   "unit": null,
+   "sourceClass": "self-disclosure",
+   "requirements": [
+    "G1-1"
+   ]
+  }
+ ]
+}

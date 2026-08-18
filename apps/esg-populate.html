@@ -40,6 +40,11 @@
   .bigred:hover:not(:disabled){background:var(--red-hi)}
   .bigred:active:not(:disabled){transform:translateY(5px);box-shadow:0 1px 0 var(--red-lo),0 4px 12px rgba(200,16,46,.3)}
   .bigred:disabled{background:var(--muted);box-shadow:none;cursor:not-allowed;opacity:.75}
+  /* A run that is going wrong should be stoppable without closing the tab. */
+  .stopbtn{display:block;width:100%;margin:10px 0 0;padding:13px;border:1px solid var(--line);
+    border-radius:10px;background:var(--panel);color:var(--ink);font-size:14px;font-weight:700;
+    letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+  .stopbtn:hover{border-color:var(--red);color:var(--red)}
   .warn{border-left:3px solid var(--warn);padding:10px 14px;margin-top:16px;color:var(--muted);font-size:13.5px;background:var(--bg);border-radius:0 8px 8px 0}
   #log{font:12.5px/1.65 var(--mono);white-space:pre-wrap;max-height:340px;overflow:auto;margin:0}
   #log:empty::after{content:"idle — nothing has been crawled";color:var(--muted)}
@@ -97,6 +102,7 @@ https://www.ricoh.co.uk/</textarea>
     </div>
 
     <button id="go" class="bigred">Populate</button>
+    <button id="stop" class="stopbtn" hidden>Stop</button>
 
     <div class="warn">
       This fetches pages from third-party websites and costs one extraction call per document the
@@ -136,7 +142,19 @@ const api = async (path, body) => {
   return json ?? {};
 };
 const tool = (name, args) => api(`/api/v1/tools/${encodeURIComponent(name)}`, args);
-const view = (name, params) => api(`/api/v1/views/${encodeURIComponent(name)}/invoke`, params || {});
+const view = async (name, args) => {
+  const r = await fetch(`/api/v1/views/${encodeURIComponent(name)}/invoke`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, credentials: 'same-origin',
+    // Parameters go under `args`. Posting them bare reads as NO arguments, and the view then
+    // refuses with "param 'domain' has no default and must be supplied".
+    body: JSON.stringify({args: args || {}})
+  });
+  const b = await r.json().catch(() => null);
+  if (!r.ok) throw new Error(b?.error?.message || b?.error || `${r.status} ${r.statusText}`);
+  // A view reports failure inside a 200 as status FAILED; rows arrive as `data`, not `rows`.
+  if (b?.status === 'FAILED') throw new Error(b?.error?.message || 'view failed');
+  return {rows: b?.data ?? [], warnings: b?.warnings ?? []};
+};
 // Web pages have their OWN ingestion path: the server fetches and converts the URL itself, which
 // also means PDFs — where most real sustainability reporting actually lives — are handled.
 // (ingest_document is for text already fetched from an integration, and explicitly not for web.)
@@ -209,9 +227,10 @@ async function checkCatalogue() {
   try {
     const rows = (await view('EsgDatapointCatalogue')).rows || [];
     if (!rows.length) {
-      say('CATALOGUE NOT SEEDED - no datapoints exist. Populate will still ingest, but nothing', 'bad');
-      say('can be read or displayed until an admin runs:', 'bad');
-      say('  POST /api/v1/admin/reference/seed?username=<you>', 'bad');
+      say('note: the catalogue is not seeded in the graph. Populating, reading and the apps all', 'dim');
+      say('work regardless — they use the catalogue shipped with the realm. Seeding only adds the', 'dim');
+      say('framework projections and makes the datapoints queryable from chat:', 'dim');
+      say('  POST /api/v1/admin/reference/seed?username=<you>', 'dim');
       return false;
     }
     return true;
@@ -233,8 +252,17 @@ async function refreshCoverage() {
   }
 }
 
+// Cooperative cancellation: checked between network call, so Stop takes effect at the next
+// boundary rather than leaving a half-written document behind.
+let abort = false;
+document.getElementById('stop').addEventListener('click', () => {
+  abort = true;
+  say('\nstopping after the current document…', 'bad');
+  document.getElementById('stop').disabled = true;
+});
+
 document.getElementById('go').addEventListener('click', async () => {
-  const btn = document.getElementById('go');
+  const btn = document.getElementById('go'), stopBtn = document.getElementById('stop');
   const targets = document.getElementById('domains').value.split('\n')
     .map(s => s.trim()).filter(s => s && !s.startsWith('#'))
     .map(raw => {
@@ -264,6 +292,8 @@ document.getElementById('go').addEventListener('click', async () => {
   }
   const ttlMs = ttlDays * 86400000;
 
+  abort = false;
+  stopBtn.hidden = false; stopBtn.disabled = false;
   btn.disabled = true;
   btn.textContent = 'Populating…';
   logEl.textContent = '';
@@ -272,6 +302,7 @@ document.getElementById('go').addEventListener('click', async () => {
 
   let totalDocs = 0, totalObs = 0;
   for (const [i, t] of targets.entries()) {
+    if (abort) { say('stopped.', 'bad'); break; }
     say(`\n[${i + 1}/${targets.length}] ${t.raw}`);
 
     const last = fresh.get(t.domain);
@@ -318,6 +349,7 @@ document.getElementById('go').addEventListener('click', async () => {
 
     let n = 0;
     for (const [j, p] of pages.entries()) {
+      if (abort) { say('  stopped.', 'bad'); break; }
       // Ingestion fetches, converts, chunks and embeds server-side, which for a heavy page is tens
       // of seconds. Announce the URL BEFORE the call: silence during a slow document is otherwise
       // indistinguishable from a hang, and a 1,600-chunk site looked exactly like one.
