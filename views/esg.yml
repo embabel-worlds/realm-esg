@@ -115,22 +115,17 @@
       type: string
       description: "The organization's domain as ingested, e.g. 'acme.com'."
   cypher: |
-    // ANCHOR THE JOIN ON ITS KEY FIELD (`uri`, the producer's anchorKeyProperty): the planner
-    // materializes a virtual join only when it finds a predicate on that key in the pattern.
-    MATCH (d:Document)-[:HAS_OBSERVATIONS]->(o:EsgObservation)
-    WHERE d.uri CONTAINS $domain
-    // ONE ANSWER PER DATAPOINT. A long document is extracted in WINDOWS and every window answers
-    // every datapoint — AXA's 280-chunk page makes five, so it holds 5 x 14 = 70 rows, most of them
-    // the not_disclosed of a window that simply did not contain the relevant text. Returned raw,
-    // that makes a well-extracted company look mostly silent and wrecks any rate computed over
-    // rows. Prefer a window that actually found something, and report how many did.
-    // Pick by AGREEMENT, not arrival order. A long report has many tables — prior-year columns,
-    // component sub-totals, restatements — so windows legitimately disagree, and taking the first
-    // is a coin toss that reads as an answer. Espersen's 384-chunk report produced Scope 1 of both
-    // 3,332 tCO2e (the total) and 184.2 tCO2e (company cars alone); first-wins reported neither
-    // reliably. The value the most windows independently found is the total far more often than
-    // not, and `candidateValues` says how much disagreement is hiding behind the number: anything
-    // above 1 deserves a human before it is quoted.
+    // READS PERSISTED OBSERVATIONS. Deliberately NOT through (d:Document)-[:HAS_OBSERVATIONS]->:
+    // that edge is a virtual join, so touching it puts the query in front of the cold-materialization
+    // cost gate, which estimates from CHUNK COUNT and cannot tell that everything is already
+    // extracted. The result was that this view failed with "too broad" for precisely the
+    // best-documented companies — espersen (182 observations across 629 chunks) and axa (125) both
+    // refused, while schott with 9 chunks answered fine.
+    //
+    // Observations are ordinary persisted nodes since the producer declared cache: { kind: graph },
+    // so a read can just read them. EsgExtract remains the one view that materializes, which is its
+    // whole job; every other view is now free and cannot start a model call.
+    MATCH (o:EsgObservation) WHERE o.docUri CONTAINS $domain
     WITH o.datapointId AS dpId, collect(o) AS obs
     WITH dpId, obs, [x IN obs WHERE x.value <> 'not_disclosed'] AS said
     UNWIND (CASE WHEN size(said) > 0 THEN said ELSE obs END) AS cand
@@ -207,21 +202,14 @@
       type: string
       description: "The organization's domain, e.g. 'acme.com'."
   cypher: |
-    // Anchored on ONE company, deliberately. A cross-company aggregate is not expressible here:
-    // EsgObservation is a VIRTUAL label, and the engine refuses to bind one except through a
-    // registered relationship from a bound anchor — "virtual label 'EsgObservation' is not reached
-    // via a registered relationship from a bound anchor". So there is no query that sweeps every
-    // company's observations at once, and pretending otherwise would return a confident number
-    // over whichever anchors happened to resolve.
-    //
-    // To compare companies, call this once per domain and put the results side by side — with the
-    // count of companies asked, because the cohort is whatever has been assessed, never a market.
-    MATCH (d:Document)-[:HAS_OBSERVATIONS]->(o:EsgObservation)
-    WHERE d.uri CONTAINS $domain
+    // Reads persisted observations; never materializes. See EsgProfile for why.
+    MATCH (o:EsgObservation) WHERE o.docUri CONTAINS $domain
+    WITH o.datapointId AS dpId,
+         max(CASE WHEN o.value <> 'not_disclosed' THEN 1 ELSE 0 END) AS disclosed
     RETURN $domain AS company,
-           count(o) AS observations,
-           count(CASE WHEN o.value <> 'not_disclosed' THEN 1 END) AS disclosing,
-           round(100.0 * count(CASE WHEN o.value <> 'not_disclosed' THEN 1 END) / count(o)) AS pctDisclosing
+           count(dpId) AS datapoints,
+           sum(disclosed) AS disclosing,
+           round(100.0 * sum(disclosed) / count(dpId)) AS pctDisclosing
 
 # ── What can this realm see at all, and what does each thing feed? ───────────────────────────
 - name: EsgDatapointCatalogue
