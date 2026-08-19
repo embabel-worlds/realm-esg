@@ -61,6 +61,35 @@ an answer to the form its own question demands.
 | `apps/esg-scorecard.html` | what a company discloses, typed and cited, in any framework's language |
 | `scripts/check-catalogue-sync.py` | **CI gate** — catalogue vs prompt vs enforced vocabulary |
 
+## Before you start — prerequisites this realm does not declare
+
+A realm manifest cannot express "needs another realm's tool", so it is written here. Skip these and
+the scripts fail with a bare 404 that does not say why.
+
+| You want | You need | Because |
+|---|---|---|
+| `scripts/find-reports.py` | **realm-research** installed | uses `brave_webSearch` to find a company's own reports |
+| `scripts/enrich-subjects.py` | **realm-diffbot** installed **and `DIFFBOT_TOKEN` set on the server** | resolves a domain to a company identity. The estate had this key under `DIFFBOT_API_KEY`, which nothing reads |
+| the peer/sector/size ranking views | `enrich-subjects.py` to have run | they join `EsgSubject`, which nothing else creates |
+| `scripts/build-vendor-baseline.py` | a local copy of the comparison export | deliberately NOT committed — it is a third party's data |
+| everything else | nothing | populate, extract, audit and the core views stand alone |
+
+### Install order matters
+
+```bash
+# 1. add to <world>/config/realms.yml  (path: for local, repo: for github)
+# 2. RESTART the app — types register at world load, not on realm update.
+#    Seeding before the restart fails with "unknown reference type 'EsgDatapoint'",
+#    which reads like a typo in the reference file rather than a stale type registry.
+# 3. seed the catalogue
+curl -XPOST "<host>/api/v1/admin/reference/seed?username=<you>"
+# 4. populate, then read
+```
+
+The apps and the extraction work whether or not step 3 ran — they carry the catalogue in
+`apps/esg-catalogue.json`. Seeding adds the framework projections and makes datapoints queryable
+from chat.
+
 ## Populating
 
 Nothing populates on its own. The realm ships no `cron/`, no `events/` and no scheduler — a realm
@@ -169,3 +198,10 @@ Honest about what is and is not done:
 - **No staleness sweeper.** `staleAfter` is declared on every datapoint and nothing acts on it.
 - **No `registry`-class datapoints yet** — country of registration and industry need a registry
   or Diffbot source, which is exactly why they are not scraped here.
+- **Large PDFs do not ingest.** Ferrero's 18.8 MB sustainability report, Holland Malt's 4.25 MB and
+  AET's all fail with "Remote end closed connection without response" — the server closes the
+  request while docling is still converting. The documents are reachable and valid; the ingest path
+  is synchronous and cannot wait. This is the single biggest limit on coverage, because the CSRD
+  statements that carry the figures are exactly these files.
+- **Hosts rate-limit.** `reports.ucb.com` returned HTTP 429 after repeated attempts.
+  `find-reports.py` has no inter-request delay, unlike `populate.py` — it should.
