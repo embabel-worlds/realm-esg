@@ -12,6 +12,7 @@ description: >
 version: 1.8.1
 author: Embabel
 url: https://github.com/embabel/realm-esg
+category: compliance
 tags:
   - esg
   - sustainability
