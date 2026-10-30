@@ -112,21 +112,21 @@
   examples:
     - q: "what does acme disclose about its emissions?"
       cypher: |
-        MATCH (d:Document) WHERE d.publishedByDomain = 'acme.com'
+        MATCH (d:Document) WHERE 'esg' IN d.tags AND d.uri CONTAINS 'acme.com'
         MATCH (d)-[:HAS_OBSERVATIONS]->(o:EsgObservation)
         WHERE o.datapointId STARTS WITH 'ghg_' AND o.value <> 'not_disclosed'
         RETURN o.datapointId AS datapoint, o.value AS value, o.unit AS unit, o.period AS period, o.quote AS evidence
     # A framework PROJECTION: the same observations, rendered in one framework's language.
     - q: "give me acme's GRI numbers"
       cypher: |
-        MATCH (d:Document) WHERE d.publishedByDomain = 'acme.com'
+        MATCH (d:Document) WHERE 'esg' IN d.tags AND d.uri CONTAINS 'acme.com'
         MATCH (d)-[:HAS_OBSERVATIONS]->(o:EsgObservation)
         MATCH (dp:EsgDatapoint {id: o.datapointId})-[:SATISFIES]->(r:EsgRequirement)-[:IN_FRAMEWORK]->(:EsgFramework {id:'gri'})
         RETURN r.code AS gri_code, r.title AS asks_for, o.value AS value, o.unit AS unit, o.quote AS evidence
     # What a company does NOT disclose is the question a confirmation-only dataset cannot answer.
     - q: "what is acme silent on?"
       cypher: |
-        MATCH (d:Document) WHERE d.publishedByDomain = 'acme.com'
+        MATCH (d:Document) WHERE 'esg' IN d.tags AND d.uri CONTAINS 'acme.com'
         MATCH (d)-[:HAS_OBSERVATIONS]->(o:EsgObservation)
         WHERE o.value = 'not_disclosed'
         RETURN o.datapointId AS datapoint
@@ -134,7 +134,8 @@
     - q: "compare disclosure rates by industry"
       cypher: |
         MATCH (org:Organization)-[:IN_INDUSTRY]->(i:Industry)
-        MATCH (d:Document {publishedByDomain: org.domain})-[:HAS_OBSERVATIONS]->(o:EsgObservation)
+        MATCH (d:Document) WHERE 'esg' IN d.tags AND d.uri CONTAINS org.domain
+        MATCH (d)-[:HAS_OBSERVATIONS]->(o:EsgObservation)
         WHERE o.datapointId = 'ghg_scope1'
         RETURN i.name AS industry,
                count(DISTINCT org) AS companies_assessed,
