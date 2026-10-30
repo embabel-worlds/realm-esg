@@ -41,6 +41,14 @@
   .flag{border-left:3px solid var(--silent);padding:9px 14px;color:var(--muted);font-size:13px;
     background:var(--bg);border-radius:0 8px 8px 0;margin-top:14px}
   code{font-family:var(--mono);font-size:12.5px}
+  #how-it-works{display:none} #how-it-works:target{display:block}
+  #how-it-works h3{font-size:14px;margin:18px 0 6px}
+  #how-it-works p,#how-it-works li{font-size:13.5px}
+  #how-it-works details{border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:6px 0;background:var(--bg)}
+  #how-it-works summary{cursor:pointer;font-size:13.5px}
+  #how-it-works pre{white-space:pre-wrap;font:12px/1.5 var(--mono);color:var(--muted);margin:8px 0 0}
+  .foot{color:var(--muted);font-size:12.5px;text-align:center;margin-top:8px}
+  .foot a{color:var(--muted)}
 </style>
 </head>
 <body>
@@ -87,6 +95,147 @@
        a scraped ESG dataset worthless.</p>
     <div class="scroll"><table id="silence"><tbody></tbody></table></div>
   </div>
+
+  <section id="how-it-works" class="card">
+    <h2>How it works</h2>
+    <h3>The data</h3>
+    <p>Everything here is read from this world's graph through the realm-esg views; nothing is fetched
+    from the web by this page. Documents (tagged <code>esg</code>) are put into the corpus by the
+    Populate app, which crawls an organization's site or ingests a report URL. Each
+    <code>EsgObservation</code> is produced by the realm's <code>esgExtraction</code> producer (an
+    <code>extract</code> producer over the document's chunks, one model call per extraction window) and
+    is kept in the graph (<code>cache: { kind: graph }</code>), so a value is as fresh as the last time
+    its document was ingested and read — not as fresh as the company's website today. Datapoint names,
+    answer types and framework requirement codes come from <code>esg-catalogue.json</code>, shipped
+    beside this app, so the page works even where the reference catalogue was never seeded.</p>
+    <h3>The questions</h3>
+    <p>The page calls four named views through <code>POST /api/v1/views/{name}/invoke</code>; it never
+    sends Cypher. On load it reads <b>EsgCoverage</b> to fill the organization list. With
+    <i>observations as captured</i> selected it first runs <b>EsgExtract</b> for the chosen domain — the
+    one call here that can start model work, reading any document not yet read — then renders
+    <b>EsgProfile</b>. With a framework selected it renders <b>EsgProfile</b> projected through the
+    shipped catalogue's requirement list for that framework (in the browser, not by graph traversal; a
+    requirement with no observation shows <i>not assessed</i>). Both modes then render
+    <b>EsgSilence</b> in the second panel.</p>
+    <details><summary><b>EsgCoverage</b> — Which organizations have material in the corpus, with document and chunk counts. Fills the Organization list. No parameters.</summary><pre>MATCH (d:Document) WHERE &#x27;esg&#x27; IN d.tags
+WITH d, [t IN d.tags WHERE t STARTS WITH &#x27;domain:&#x27;][0] AS dt
+WITH d, coalesce(
+       CASE WHEN dt IS NULL THEN null ELSE substring(dt, 7) END,
+       replace(split(replace(replace(d.uri, &#x27;https://&#x27;, &#x27;&#x27;), &#x27;http://&#x27;, &#x27;&#x27;), &#x27;/&#x27;)[0], &#x27;www.&#x27;, &#x27;&#x27;)
+     ) AS domain
+OPTIONAL MATCH (c:ContentElement)-[:HAS_PARENT*]-&gt;(d:Document)
+WITH domain, d, count(DISTINCT c) AS chunkCount
+RETURN domain,
+       count(DISTINCT d) AS documents,
+       sum(chunkCount) AS chunks,
+       max(d.ingestionEpochMs) AS lastIngestedEpochMs
+ORDER BY domain</pre></details>
+    <details><summary><b>EsgExtract</b> — Reads every ingested document for the domain and returns its observations, materializing extraction on first read (ai: {materialize: true}). Run before the observations table. Parameters: domain.</summary><pre>// ANCHOR THE JOIN ON ITS KEY FIELD (`uri`, the producer&#x27;s anchorKeyProperty): the planner
+// materializes a virtual join only when it finds a predicate on that key in the pattern.
+// `ai: {materialize: true}` is the EXPLICIT opt-in past the cold-materialization cost gate,
+// which refuses a query whose ESTIMATED cold model calls exceed the configured ceiling. Right
+// for a passive read; wrong here — this view exists to READ documents and is what the Populate
+// button calls, so the cost is the thing the user just asked for.
+//
+// Without it the failure is silent and LOAD-DEPENDENT: axa.com&#x27;s two pages (280 + 86 chunks,
+// ~7 windows) were refused together while either alone succeeded, and the refusal arrived as
+// &quot;the request was too broad&quot; with no warning and no producer log line — one company silently
+// skipped while the run reported success.
+//
+// The other views deliberately do NOT carry this: opening a scorecard must not be able to
+// start an unbounded extraction run.
+MATCH (d:Document)-[:HAS_OBSERVATIONS {ai: {materialize: true}}]-&gt;(o:EsgObservation)
+WHERE d.uri CONTAINS $domain
+// ONE ANSWER PER DATAPOINT. A long document is extracted in WINDOWS and every window answers
+// every datapoint — AXA&#x27;s 280-chunk page makes five, so it holds 5 x 14 = 70 rows, most of them
+// the not_disclosed of a window that simply did not contain the relevant text. Returned raw,
+// that makes a well-extracted company look mostly silent and wrecks any rate computed over
+// rows. Prefer a window that actually found something, and report how many did.
+// Pick by AGREEMENT, not arrival order. A long report has many tables — prior-year columns,
+// component sub-totals, restatements — so windows legitimately disagree, and taking the first
+// is a coin toss that reads as an answer. Espersen&#x27;s 384-chunk report produced Scope 1 of both
+// 3,332 tCO2e (the total) and 184.2 tCO2e (company cars alone); first-wins reported neither
+// reliably. The value the most windows independently found is the total far more often than
+// not, and `candidateValues` says how much disagreement is hiding behind the number: anything
+// above 1 deserves a human before it is quoted.
+WITH o.datapointId AS dpId, collect(o) AS obs
+WITH dpId, obs, [x IN obs WHERE x.value &lt;&gt; &#x27;not_disclosed&#x27;] AS said
+UNWIND (CASE WHEN size(said) &gt; 0 THEN said ELSE obs END) AS cand
+WITH dpId, obs, said, cand.value AS v, collect(cand) AS sameValue
+WITH dpId, obs, said, v, sameValue, size(sameValue) AS agreeing
+ORDER BY agreeing DESC, v
+WITH dpId, obs, said, collect({o: sameValue[0], v: v, agreeing: agreeing}) AS ranked
+WITH dpId, ranked[0].o AS o,
+     size(said) AS windowsDisclosing,
+     size(obs) AS windowsRead,
+     ranked[0].agreeing AS windowsAgreeing,
+     size(ranked) AS candidateValues
+RETURN o.docUri AS document, dpId AS datapoint, o.value AS value,
+       o.unit AS unit, o.period AS period, o.quote AS quote, o.sourceChunkId AS chunkId,
+       windowsDisclosing, windowsRead, windowsAgreeing, candidateValues
+ORDER BY datapoint</pre></details>
+    <details><summary><b>EsgProfile</b> — One answer per datapoint for the domain, picked by agreement across extraction windows, with the verbatim quote and source URL. Feeds the main table in both modes. Parameters: domain.</summary><pre>// READS PERSISTED OBSERVATIONS. Deliberately NOT through (d:Document)-[:HAS_OBSERVATIONS]-&gt;:
+// that edge is a virtual join, so touching it puts the query in front of the cold-materialization
+// cost gate, which estimates from CHUNK COUNT and cannot tell that everything is already
+// extracted. The result was that this view failed with &quot;too broad&quot; for precisely the
+// best-documented companies — espersen (182 observations across 629 chunks) and axa (125) both
+// refused, while schott with 9 chunks answered fine.
+//
+// Observations are ordinary persisted nodes since the producer declared cache: { kind: graph },
+// so a read can just read them. EsgExtract remains the one view that materializes, which is its
+// whole job; every other view is now free and cannot start a model call.
+MATCH (o:EsgObservation) WHERE o.docUri CONTAINS $domain
+WITH o.datapointId AS dpId, collect(o) AS obs
+WITH dpId, obs, [x IN obs WHERE x.value &lt;&gt; &#x27;not_disclosed&#x27;] AS said
+UNWIND (CASE WHEN size(said) &gt; 0 THEN said ELSE obs END) AS cand
+WITH dpId, obs, said, cand.value AS v, collect(cand) AS sameValue
+WITH dpId, obs, said, v, sameValue, size(sameValue) AS agreeing
+ORDER BY agreeing DESC, v
+WITH dpId, obs, said, collect({o: sameValue[0], v: v, agreeing: agreeing}) AS ranked
+WITH dpId, ranked[0].o AS o,
+     size(said) AS windowsDisclosing,
+     size(obs) AS windowsRead,
+     ranked[0].agreeing AS windowsAgreeing,
+     size(ranked) AS candidateValues
+OPTIONAL MATCH (dp:EsgDatapoint {id: dpId})
+RETURN coalesce(dp.name, dpId) AS datapoint, dp.answerType AS type, o.value AS value,
+       o.unit AS unit, o.period AS period, o.confidence AS confidence, o.quote AS evidence,
+       o.docUri AS sourceUrl, o.sourceChunkId AS chunkId,
+       windowsDisclosing, windowsRead, windowsAgreeing, candidateValues
+ORDER BY datapoint</pre></details>
+    <details><summary><b>EsgSilence</b> — Datapoints the material is silent on (not_disclosed) versus never read (not_assessed). Feeds the Silence panel. Parameters: domain.</summary><pre>MATCH (dp:EsgDatapoint)
+OPTIONAL MATCH (d:Document)-[:HAS_OBSERVATIONS]-&gt;(o:EsgObservation)
+  WHERE d.uri CONTAINS $domain AND o.datapointId = dp.id
+WITH dp, o
+WHERE o IS NULL OR o.value = &#x27;not_disclosed&#x27;
+RETURN dp.name AS datapoint, dp.answerType AS type,
+       CASE WHEN o IS NULL THEN &#x27;not_assessed&#x27; ELSE &#x27;not_disclosed&#x27; END AS status
+ORDER BY status, dp.name</pre></details>
+
+    <h3>When it looks wrong</h3>
+    <ul>
+      <li><i>nothing to show — populate this domain first</i>: the view returned no rows — the
+      organization has no observations yet. Use the Populate app; an absent company has not been
+      assessed, which is not the same as having disclosed nothing.</li>
+      <li><i>could not load: …</i>: a view failed or reported <code>FAILED</code>; the message is the
+      appliance's own.</li>
+      <li><i>nothing assessed yet — use Populate</i> / <i>coverage unavailable</i> in the list:
+      EsgCoverage returned no rows, or could not be read.</li>
+      <li>The first observations read of a newly ingested company is slow (EsgExtract makes one model
+      call per extraction window); later reads are instant until the document changes.</li>
+      <li>In a framework rendering, codes are flagged <code>verified: false</code> — provisional, not
+      yet checked against the published standard. A row marked <i>not assessed</i> means no
+      observation exists for that datapoint, not that the company is silent.</li>
+      <li>Units are as published and never converted.</li>
+    </ul>
+    <h3>What made this possible</h3>
+    <p>Extraction is a declared producer over a virtual join (<code>HAS_OBSERVATIONS</code>): the
+    first query that traverses it with an explicit materialize opt-in runs the model over the
+    document's chunks and keeps the typed observations in the graph, so every later read is an ordinary
+    graph query. The page is static HTML that asks the world for views by name; there is no backend of
+    its own to deploy.</p>
+  </section>
+  <p class="foot"><a href="#how-it-works">How it works</a></p>
 </div>
 
 <script>
@@ -204,5 +353,8 @@ async function render() {
   render();
 })();
 </script>
+<div id="embabel-badge" style="position:fixed;bottom:0;left:0;right:0;text-align:center;padding:6px 0;background:rgba(10,10,15,0.9);border-top:1px solid rgba(99,192,245,0.2);font-size:0.75rem;color:#6b7280;z-index:9999;pointer-events:none;">
+  Created with <a href="https://worlds.embabel.com" target="_blank" rel="noopener noreferrer" style="color:#63c0f5;text-decoration:none;pointer-events:auto;">Embabel Worlds</a>
+</div>
 </body>
 </html>

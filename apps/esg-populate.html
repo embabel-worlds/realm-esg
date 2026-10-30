@@ -56,6 +56,14 @@
   th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
   td.n{text-align:right;font-family:var(--mono)}
   .scroll{overflow-x:auto}
+  #how-it-works{display:none} #how-it-works:target{display:block}
+  #how-it-works h3{font-size:14px;margin:18px 0 6px}
+  #how-it-works p,#how-it-works li{font-size:13.5px}
+  #how-it-works details{border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:6px 0;background:var(--bg)}
+  #how-it-works summary{cursor:pointer;font-size:13.5px}
+  #how-it-works pre{white-space:pre-wrap;font:12px/1.5 var(--mono);color:var(--muted);margin:8px 0 0}
+  .foot{color:var(--muted);font-size:12.5px;text-align:center;margin-top:8px}
+  .foot a{color:var(--muted)}
 </style>
 </head>
 <body>
@@ -124,6 +132,90 @@ https://www.ricoh.co.uk/</textarea>
        assessed, which is not the same as having disclosed nothing.</p>
     <div class="scroll"><table id="coverage"><tbody></tbody></table></div>
   </div>
+
+  <section id="how-it-works" class="card">
+    <h2>How it works</h2>
+    <h3>The data</h3>
+    <p>This page writes the corpus the ESG realm reads. Each target is either crawled (a bare domain:
+    apex, then <code>www.</code>) or ingested directly (a full URL, including a PDF). Every page kept is
+    ingested server-side — fetched, converted, chunked and embedded — as a <code>Document</code> tagged
+    <code>esg</code> and attributed to the organization's domain. Observations are then read from each
+    document by the realm's <code>esgExtraction</code> producer and kept in the graph
+    (<code>cache: { kind: graph }</code>). Nothing runs on a schedule: the corpus changes only when
+    someone presses Populate. Crawl hint, URL exclusions, page budget, delay and the refetch window
+    default from <code>esg-population.json</code>, shipped beside this app; edits on the page apply to
+    this run only.</p>
+    <h3>The questions</h3>
+    <p>Writes go through two fixed endpoints; reads through named views
+    (<code>POST /api/v1/views/{name}/invoke</code>). The browser never sends Cypher.</p>
+    <ul>
+      <li><b>crawl</b> tool (<code>POST /api/v1/tools/crawl</code>, args <code>url</code>,
+      <code>hint</code>, <code>max_pages</code>) — lists the pages under a domain, ranked by the crawl
+      hint. Pages matching an exclusion pattern are dropped before any fetch; include hints only
+      reorder.</li>
+      <li><b>Ingest a URL</b> (<code>POST /api/v1/documents/url</code>, body <code>url</code>,
+      <code>fromOrgDomain</code>, <code>tags: ['esg']</code>) — one call per page or report.</li>
+    </ul>
+    <details><summary><b>EsgCoverage</b> — What the corpus holds per domain. Fills the Coverage table, and its lastIngestedEpochMs decides which domains are inside the refetch window and skipped. No parameters.</summary><pre>MATCH (d:Document) WHERE &#x27;esg&#x27; IN d.tags
+WITH d, [t IN d.tags WHERE t STARTS WITH &#x27;domain:&#x27;][0] AS dt
+WITH d, coalesce(
+       CASE WHEN dt IS NULL THEN null ELSE substring(dt, 7) END,
+       replace(split(replace(replace(d.uri, &#x27;https://&#x27;, &#x27;&#x27;), &#x27;http://&#x27;, &#x27;&#x27;), &#x27;/&#x27;)[0], &#x27;www.&#x27;, &#x27;&#x27;)
+     ) AS domain
+OPTIONAL MATCH (c:ContentElement)-[:HAS_PARENT*]-&gt;(d:Document)
+WITH domain, d, count(DISTINCT c) AS chunkCount
+RETURN domain,
+       count(DISTINCT d) AS documents,
+       sum(chunkCount) AS chunks,
+       max(d.ingestionEpochMs) AS lastIngestedEpochMs
+ORDER BY domain</pre></details>
+    <details><summary><b>EsgDatapointCatalogue</b> — Checked at the start of a run; no rows means the reference catalogue is not seeded in the graph, which the log reports. No parameters.</summary><pre>MATCH (dp:EsgDatapoint)
+OPTIONAL MATCH (dp:EsgDatapoint)-[:SATISFIES]-&gt;(r:EsgRequirement)-[:IN_FRAMEWORK]-&gt;(f:EsgFramework)
+RETURN dp.id AS datapoint, dp.name AS name, dp.answerType AS answerType, dp.unit AS unit,
+       dp.sourceClass AS sourceClass,
+       collect(DISTINCT f.name) AS frameworks,
+       collect(DISTINCT r.code) AS requirementCodes
+ORDER BY dp.answerType, dp.id</pre></details>
+    <details><summary><b>EsgDocuments</b> — The ingested documents for a domain with chunk counts: the work list for reading. Parameters: domain.</summary><pre>MATCH (d:Document) WHERE &#x27;esg&#x27; IN d.tags AND d.uri CONTAINS $domain
+OPTIONAL MATCH (c:Chunk)-[:HAS_PARENT*]-&gt;(d:Document)
+RETURN d.uri AS uri, d.title AS title, count(c) AS chunks
+ORDER BY chunks DESC</pre></details>
+    <details><summary><b>EsgExtractDocument</b> — Reads ONE document and returns its observations, materializing extraction (one model call per window) on first read. Called once per document after ingestion. Parameters: uri.</summary><pre>MATCH (d:Document {uri: $uri})-[:HAS_OBSERVATIONS {ai: {materialize: true}}]-&gt;(o:EsgObservation)
+WITH o.datapointId AS dpId, collect(o) AS obs
+WITH dpId, obs, [x IN obs WHERE x.value &lt;&gt; &#x27;not_disclosed&#x27;] AS said
+WITH dpId,
+     CASE WHEN size(said) &gt; 0 THEN said[0] ELSE obs[0] END AS o,
+     size(said) AS windowsDisclosing,
+     size(obs) AS windowsRead
+RETURN o.docUri AS document, dpId AS datapoint, o.value AS value,
+       o.unit AS unit, o.period AS period, o.quote AS quote, o.sourceChunkId AS chunkId,
+       windowsDisclosing, windowsRead
+ORDER BY datapoint</pre></details>
+
+    <h3>When it looks wrong</h3>
+    <ul>
+      <li><i>current — last read Nd ago … Skipped</i>: the domain was ingested inside the refetch
+      window. Set <i>Refetch after</i> to 0 to force a re-read. Freshness is per domain, not per URL.</li>
+      <li><i>crawled but no page carried a url</i> / <i>no crawlable entry point</i>: the site
+      geo-redirects, needs JavaScript or blocks non-browser clients. Paste the sustainability report URL
+      instead.</li>
+      <li><i>every page was excluded</i>: the exclusion patterns matched everything the crawl found.</li>
+      <li><i>Documents are in but nothing was read from them</i>: ingestion succeeded and extraction
+      returned no observations.</li>
+      <li>A heavy document takes tens of seconds to ingest and longer to read; the log names each URL
+      before its call so a slow one is not mistaken for a hang. Stop takes effect at the next document
+      boundary.</li>
+      <li>Coverage empty (<i>nothing assessed yet</i>) means no <code>esg</code> document is in the
+      corpus; <i>coverage unavailable</i> means the view could not be read.</li>
+    </ul>
+    <h3>What made this possible</h3>
+    <p>Ingestion, crawling and extraction are the appliance's own: the page calls a tool and an
+    ingestion endpoint, then reads documents through a view whose traversal of a virtual join
+    (<code>HAS_OBSERVATIONS</code>, with an explicit materialize opt-in) runs the realm's declared
+    extraction producer and keeps the result in the graph. The page is static HTML; there is no crawler,
+    queue or extraction service of its own.</p>
+  </section>
+  <p class="foot"><a href="#how-it-works">How it works</a></p>
 </div>
 
 <script>
@@ -401,5 +493,8 @@ document.getElementById('go').addEventListener('click', async () => {
 
 loadPolicy().then(refreshCoverage);
 </script>
+<div id="embabel-badge" style="position:fixed;bottom:0;left:0;right:0;text-align:center;padding:6px 0;background:rgba(10,10,15,0.9);border-top:1px solid rgba(99,192,245,0.2);font-size:0.75rem;color:#6b7280;z-index:9999;pointer-events:none;">
+  Created with <a href="https://worlds.embabel.com" target="_blank" rel="noopener noreferrer" style="color:#63c0f5;text-decoration:none;pointer-events:auto;">Embabel Worlds</a>
+</div>
 </body>
 </html>
