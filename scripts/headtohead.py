@@ -61,9 +61,11 @@ def main() -> int:
         sys.exit(f"no baseline rows for those {len(domains)} domains — check the export and the names")
 
     ours = cypher("""
-        MATCH (d:Document) WHERE d.publishedByDomain IN $domains
+        MATCH (d:Document) WHERE 'esg' IN d.tags
+        WITH d, [x IN $domains WHERE d.uri CONTAINS x][0] AS domain
+        WHERE domain IS NOT NULL
         MATCH (d)-[:HAS_OBSERVATIONS]->(o:EsgObservation)
-        RETURN d.publishedByDomain AS domain, o.datapointId AS datapoint, o.value AS value,
+        RETURN domain, o.datapointId AS datapoint, o.value AS value,
                o.unit AS unit, o.period AS period, o.quote AS quote,
                o.sourceChunkId AS chunkId, o.confidence AS confidence
     """, {"domains": sorted(domains)})

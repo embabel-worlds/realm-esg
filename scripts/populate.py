@@ -179,9 +179,10 @@ def main() -> int:
     print(f"\n{ok}/{len(domains)} domains populated, {docs} documents ingested")
     print("Extraction is graph-cached: it runs on the first traversal of each document.")
     print("Warm it (and see the observations) with:\n")
-    print("  MATCH (d:Document) WHERE d.publishedByDomain IN $domains")
+    print("  MATCH (d:Document) WHERE 'esg' IN d.tags")
+    print("  WITH d, [x IN $domains WHERE d.uri CONTAINS x][0] AS domain WHERE domain IS NOT NULL")
     print("  MATCH (d)-[:HAS_OBSERVATIONS]->(o:EsgObservation)")
-    print("  RETURN d.publishedByDomain AS domain, o.datapointId, o.value, o.unit, o.quote")
+    print("  RETURN domain, o.datapointId, o.value, o.unit, o.quote")
     failed = [r for r in results if r["status"] != "ok"]
     if failed:
         print(f"\nnot populated ({len(failed)}):")
