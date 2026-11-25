@@ -38,6 +38,58 @@ PROBES = {
 }
 
 
+# A figure the engine marks short is not the realm's figure, and a battery that counts it reports
+# drift that is the source's. short(d) reads an answer's own error, reason, warnings and outcome and
+# is None when the answer is whole, else the line that stands in for the figure: "REFUSED: <why>"
+# or "PARTIAL <n>: <the engine's reason>". It reads both wires: a query answer (`rows`, `warnings`
+# as strings opening with the engine's code) and a view envelope (`status`, `outcome`, `warnings`
+# as {code, message}).
+# Raw warning codes that mean rows or values may be missing (the engine's incompleteness kinds).
+# Cost notes (FILTERED_IN_GRAPH, AGGREGATE_NOT_PUSHED, EMPTY_NOT_KEPT, PUSHDOWN_VALUE_UNMATCHED),
+# FILTER_STARVED (an honest empty), STALE_COPY, FIELDS_WITHHELD and UNKNOWN_VIA leave every row in place.
+SHORT_CODES = (
+    "PARTIAL_RESULT", "PRODUCER_ERROR", "NEEDS_FILTER", "NEEDS_PRODUCER", "FILTER_REJECTED",
+    "UNPUSHED_FILTER", "AMBIGUOUS_LABEL", "INCOMPLETE_TRAVERSAL", "INCOMPLETE_RANKING",
+    "INCOMPLETE_AGGREGATE", "INCOMPLETE_INPUT", "MATERIALIZATION_FAILED", "REDUCTION_FAILED",
+    "UNPARSEABLE_ANSWER", "TERMS_UNAVAILABLE", "COMPUTE_FAILED", "PROPERTY_NOT_STORED",
+    "FOLLOW_CAPPED", "UNLINKED_CHILDREN", "RESOLUTION_DROPPED", "AGENTIC_DEGRADED",
+    "SOURCE_UNANSWERED",
+)
+# The typed `reason` a query result carries when it is not a clean answer and not an honest empty.
+SHORT_REASONS = ("UNBOUNDED", "PARTIAL_NOT_MATCHED", "UNPUSHED_FILTER", "DISCONNECTED",
+                 "INTERNAL_ERROR", "WRITE_IN_PROGRESS", "KILLED", "TOO_EXPENSIVE")
+# Public warning codes on a view envelope that mean the same.
+SHORT_PUBLIC = ("PARTIAL", "REDUCTION_FAILED", "COMPUTE_FAILED", "PROPERTY_NOT_STORED",
+                "AGENTIC_DEGRADED", "RATE_LIMITED", "SOURCE_UNAVAILABLE", "SOURCE_REJECTED",
+                "INVALID_FILTER", "UNPUSHED_FILTER", "TOO_BROAD", "FETCH_CAPPED",
+                "INDEX_UNAVAILABLE", "ARGUMENT_REFUSED")
+
+
+def short(d, figure=None):
+    tag = "PARTIAL" if figure is None else "PARTIAL %s" % (figure,)
+    if not isinstance(d, dict):
+        return "REFUSED: not an engine answer: " + str(d)[:160]
+    if "outcome" in d or "status" in d:  # a view envelope
+        err = d.get("error") or {}
+        if d.get("status") != "SUCCEEDED":
+            return "REFUSED: %s %s" % (d.get("status"), (err.get("code", "") + " " + err.get("message", "")).strip()[:160] if isinstance(err, dict) else str(err)[:160])
+        ws = [w for w in d.get("warnings") or [] if isinstance(w, dict) and w.get("code") in SHORT_PUBLIC]
+        if d.get("outcome") not in ("OK", "EMPTY") or ws:
+            why = ws[0]["code"] + ": " + ws[0].get("message", "") if ws else "outcome " + str(d.get("outcome"))
+            return "%s: %s" % (tag, why[:200])
+        return None
+    if d.get("error"):
+        return "REFUSED: " + str(d["error"])[:160]
+    if d.get("run"):
+        return "%s: the run had not finished (%s)" % (tag, d["run"])
+    ws = [w for w in d.get("warnings") or [] if isinstance(w, str) and w.split(":", 1)[0].strip() in SHORT_CODES]
+    if ws:
+        return "%s: %s" % (tag, ws[0][:200])
+    if d.get("reason") in SHORT_REASONS:
+        return "%s: reason %s" % (tag, d["reason"])
+    return None
+
+
 def post(path, body, timeout=600):
     req = urllib.request.Request(BASE + path, data=json.dumps(body).encode(), headers=H, method="POST")
     return json.loads(urllib.request.urlopen(req, timeout=timeout).read())
@@ -47,7 +99,25 @@ def cypher(q, timeout=600):
     r = post("/api/v1/tools/kg_query", {"cypher": q}, timeout)
     if "error" in r:
         raise RuntimeError(r["error"][:200])
+    # A short page of the source is how correct quotes get reported FABRICATED (the paging below
+    # exists for the same reason), so it stops the audit rather than feed it.
+    s = short(r.get("result") or {}, len((r.get("result") or {}).get("rows") or []))
+    if s:
+        raise Short(f"source read: {s}")
     return (r.get("result") or {}).get("rows") or []
+
+
+class Short(RuntimeError):
+    """An answer the engine marked short or refused: the audit cannot judge against it."""
+
+
+def view_rows(name, args):
+    """A view's rows, or Short: a partial extraction audits fewer answers and reads as fewer defects."""
+    d = post(f"/api/v1/views/{name}/invoke", {"args": args})
+    s = short(d, len(d.get("data") or []) if isinstance(d.get("data"), list) else 0)
+    if s:
+        raise Short(f"{name} {json.dumps(args)}: {s}")
+    return d.get("data") or []
 
 
 def main() -> int:
@@ -61,9 +131,9 @@ def main() -> int:
         # Per DOCUMENT, never per domain: one request per page keeps cost bounded and progress
         # visible, and avoids the case where a multi-page company stalls a single request.
         answers = []
-        for doc in post("/api/v1/views/EsgDocuments/invoke", {"args": {"domain": dom}}).get("data") or []:
+        for doc in view_rows("EsgDocuments", {"domain": dom}):
             print(f"  {dom}: reading {doc['uri'][:78]} ({doc['chunks']} chunks)…", flush=True)
-            answers += post("/api/v1/views/EsgExtractDocument/invoke", {"args": {"uri": doc["uri"]}}).get("data") or []
+            answers += view_rows("EsgExtractDocument", {"uri": doc["uri"]})
         if not answers:
             print(f"{dom}: no observations — populate first", file=sys.stderr)
             continue
@@ -121,4 +191,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except Short as e:
+        print(f"AUDIT NOT RUN — {e}", file=sys.stderr)
+        sys.exit(1)
